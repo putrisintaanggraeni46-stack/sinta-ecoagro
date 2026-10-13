@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Katalog produk toko pertanian (benih, pupuk, pestisida)",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 200, "description": "Nama produk pertanian" },
+        "category": { "type": "string", "maxLength": 100, "description": "Kategori produk: Benih & Bibit, Pupuk & Nutrisi, Pestisida & Perlindungan" },
+        "price": { "type": "number", "description": "Harga jual dalam Rupiah" },
+        "stock": { "type": "number", "description": "Jumlah stok tersedia" },
+        "unit": { "type": "string", "maxLength": 50, "description": "Satuan produk (Pack 50g, Sak 25kg, Botol 500ml, dll)" },
+        "description": { "type": "string", "maxLength": 2000, "description": "Deskripsi lengkap dan cara pemakaian" },
+        "imageUrl": { "type": "string", "maxLength": 2000, "description": "URL gambar produk" },
+        "rating": { "type": "number", "description": "Rating produk (1.0 - 5.0)" },
+        "soldCount": { "type": "number", "description": "Jumlah terjual" },
+        "featured": { "type": "boolean", "description": "Apakah produk unggulan" },
+        "createdAt": { "type": "string", "maxLength": 100, "description": "Waktu penambahan produk" }
+      },
+      "required": ["name", "category", "price", "stock", "unit", "description", "imageUrl"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Pesanan belanja pertanian dari pelanggan",
+      "type": "object",
+      "properties": {
+        "orderNumber": { "type": "string", "maxLength": 50, "description": "Kode unik nomor pesanan e.g. TANI-202610-001" },
+        "customerName": { "type": "string", "maxLength": 150, "description": "Nama lengkap pembeli / petani" },
+        "customerPhone": { "type": "string", "maxLength": 50, "description": "Nomor WhatsApp pembeli" },
+        "customerAddress": { "type": "string", "maxLength": 500, "description": "Alamat pengiriman lengkap" },
+        "notes": { "type": "string", "maxLength": 500, "description": "Catatan khusus pesanan" },
+        "items": { "type": "array", "description": "Daftar item belanja" },
+        "totalAmount": { "type": "number", "description": "Total nominal belanja dalam Rupiah" },
+        "status": { "type": "string", "enum": ["pending_payment", "proof_submitted", "processing", "shipped", "completed", "cancelled"], "description": "Status proses pesanan" },
+        "paymentMethod": { "type": "string", "maxLength": 50, "description": "Metode pembayaran terpilih" },
+        "paymentProofUrl": { "type": "string", "maxLength": 1000000, "description": "Bukti transfer / struk pembayaran (URL atau base64)" },
+        "paymentProofDate": { "type": "string", "maxLength": 100, "description": "Waktu upload bukti transfer" },
+        "adminNotes": { "type": "string", "maxLength": 500, "description": "Catatan verifikasi dari admin" },
+        "createdAt": { "type": "string", "maxLength": 100, "description": "Waktu order dibuat" },
+        "updatedAt": { "type": "string", "maxLength": 100, "description": "Waktu order diperbarui" }
+      },
+      "required": ["orderNumber", "customerName", "customerPhone", "customerAddress", "totalAmount", "status", "paymentMethod", "createdAt"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Profil dan rekapan transaksi pelanggan / kelompok tani",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 150, "description": "Nama pelanggan" },
+        "phone": { "type": "string", "maxLength": 50, "description": "Nomor telepon / WhatsApp" },
+        "address": { "type": "string", "maxLength": 500, "description": "Alamat utama" },
+        "totalOrders": { "type": "number", "description": "Total frekuensi pembelian" },
+        "totalSpent": { "type": "number", "description": "Total akumulasi belanja dalam IDR" },
+        "lastOrderDate": { "type": "string", "maxLength": 100, "description": "Tanggal order terakhir" }
+      },
+      "required": ["name", "phone", "address"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Daftar admin pengelola toko",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "maxLength": 150, "description": "Email admin" },
+        "role": { "type": "string", "maxLength": 50, "description": "Peran admin" },
+        "name": { "type": "string", "maxLength": 150, "description": "Nama pengelola" }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Koleksi katalog produk pertanian yang dapat dibeli oleh customer"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Koleksi pesanan pelanggan untuk proses checkout dan approval pembayaran"
+    },
+    "/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "Koleksi data pelanggan toko pertanian"
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Daftar akses admin toko pertanian"
+    }
+  }
+}

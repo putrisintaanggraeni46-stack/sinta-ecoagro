@@ -1,0 +1,6 @@
+{
+  "name": "EcoAgro - Marketplace & Toko Pertanian Modern",
+  "description": "EcoAgro adalah toko pertanian modern terlengkap dengan 50 produk unggulan (benih, pupuk, pestisida, alat & mesin tani, irigasi, dan pasca panen), shopping cart, upload bukti bayar, dan dashboard admin internal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

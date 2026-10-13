@@ -1,0 +1,69 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'putrisintaanggraeni46@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Connection testing doc
+    match /test/connection {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Admin profile collection
+    match /admins/{adminId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Products catalog
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update, delete: if true;
+    }
+
+    // Orders
+    match /orders/{orderId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isAdmin();
+    }
+
+    // Customers directory
+    match /customers/{customerId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isAdmin();
+    }
+
+    // User accounts (Customers & Admins)
+    match /users/{userId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isAdmin();
+    }
+
+    // Warehouse Stock Mutations
+    match /stock_mutations/{mutationId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isAdmin();
+    }
+  }
+}
