@@ -22,6 +22,34 @@ const CUSTOMERS_COLLECTION = 'customers';
 const USERS_COLLECTION = 'users';
 const STOCK_MUTATIONS_COLLECTION = 'stock_mutations';
 
+/**
+ * Recursively cleans any undefined values from an object or array,
+ * replacing them with empty strings or removing them,
+ * because Firestore addDoc / setDoc / updateDoc rejects `undefined`.
+ */
+export function sanitizeFirestoreData<T>(obj: T): T {
+  if (obj === undefined) {
+    return '' as unknown as T;
+  }
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map((item) => sanitizeFirestoreData(item)) as unknown as T;
+  }
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) {
+      clean[key] = '';
+    } else if (value !== null && typeof value === 'object') {
+      clean[key] = sanitizeFirestoreData(value);
+    } else {
+      clean[key] = value;
+    }
+  }
+  return clean as T;
+}
+
 // Seed 50 initial products if database collection has fewer than 40 items
 export async function seedInitialProducts(force = false): Promise<void> {
   try {
@@ -332,12 +360,25 @@ export function subscribeToOrders(
 // Create new customer order with stock decrement & mutation logging
 export async function createOrder(orderPayload: Omit<Order, 'id'>): Promise<string> {
   try {
-    // Write new order doc
-    const orderDocRef = await addDoc(collection(db, ORDERS_COLLECTION), {
+    const rawOrderData = {
       ...orderPayload,
+      customerId: orderPayload.customerId || 'guest',
+      customerEmail: orderPayload.customerEmail || '',
+      notes: orderPayload.notes || '',
+      discountReason: orderPayload.discountReason || '',
+      couponCode: orderPayload.couponCode || '',
+      paymentProofUrl: orderPayload.paymentProofUrl || '',
+      paymentProofDate: orderPayload.paymentProofDate || '',
+      adminNotes: orderPayload.adminNotes || '',
+      trackingNumber: orderPayload.trackingNumber || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    });
+    };
+
+    const sanitizedOrderData = sanitizeFirestoreData(rawOrderData);
+
+    // Write new order doc
+    const orderDocRef = await addDoc(collection(db, ORDERS_COLLECTION), sanitizedOrderData);
 
     // Update product stocks and record stock out mutation
     for (const item of orderPayload.items) {
@@ -361,7 +402,7 @@ export async function createOrder(orderPayload: Omit<Order, 'id'>): Promise<stri
           });
 
           // Record stock-out mutation
-          await addDoc(collection(db, STOCK_MUTATIONS_COLLECTION), {
+          await addDoc(collection(db, STOCK_MUTATIONS_COLLECTION), sanitizeFirestoreData({
             productId: item.productId,
             productName: item.name,
             type: 'out',
@@ -370,7 +411,7 @@ export async function createOrder(orderPayload: Omit<Order, 'id'>): Promise<stri
             newStock: nextStock,
             reason: `Penjualan Pesanan #${orderPayload.orderNumber} (${orderPayload.customerName})`,
             createdAt: new Date().toISOString(),
-          });
+          }));
         } catch (e) {
           console.warn('Stock update transaction error for item:', item.name, e);
         }

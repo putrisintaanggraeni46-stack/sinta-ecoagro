@@ -22,9 +22,13 @@ export interface Product {
   id: string;
   name: string;
   category: ProductCategory;
-  price: number;
+  price: number;              // Harga Jual Konsumen
+  costPrice?: number;         // Harga Beli / Modal Supplier (HPP)
+  profitRatio?: number;       // Rasio Profit (%) dari Harga Beli
+  profitNominal?: number;     // Estimasi Laba per unit (price - costPrice)
+  barcode?: string;           // Kode Barcode / SKU Kasir untuk quick scan
   stock: number;
-  minStockAlert?: number; // Ambang batas stok kritis (default 10)
+  minStockAlert?: number;     // Ambang batas stok kritis (default 10)
   unit: string;
   description: string;
   imageUrl: string;
@@ -52,7 +56,9 @@ export type PaymentMethod =
   | 'transfer_mandiri' 
   | 'transfer_bri' 
   | 'qris'
-  | 'cod';              // Bayar di Tempat
+  | 'cod'               // Bayar di Tempat
+  | 'cash'              // Tunai Kasir POS
+  | 'debt';             // Hutang / Bon Petani (Tempo)
 
 export type ShippingCourier = 
   | 'kurir_toko'        // Kurir Internal Toko EcoAgro
@@ -63,6 +69,7 @@ export interface OrderItem {
   productId: string;
   name: string;
   price: number;
+  costPrice?: number;   // Modal untuk pencatatan margin POS
   quantity: number;
   unit: string;
   subtotal: number;
@@ -92,6 +99,10 @@ export interface Order {
   paymentProofDate?: string;
   adminNotes?: string;
   trackingNumber?: string;
+  source?: 'pos' | 'webstore'; // Sumber transaksi (POS Kasir fisik vs Webstore online)
+  cashReceived?: number;       // Nominal uang tunai diterima di kasir
+  cashChange?: number;         // Uang kembalian kasir
+  cashierName?: string;        // Nama staf/admin kasir
   createdAt: string;
   updatedAt: string;
 }
