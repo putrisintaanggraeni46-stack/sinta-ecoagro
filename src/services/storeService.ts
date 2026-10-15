@@ -101,6 +101,9 @@ export function subscribeToProducts(
           name: data.name || '',
           category: data.category || 'Benih & Bibit Unggul',
           price: Number(data.price) || 0,
+          buyPrice: Number(data.buyPrice) || 0,
+          profitRatio: Number(data.profitRatio) || 0,
+          sku: data.sku || '',
           stock: Number(data.stock) || 0,
           minStockAlert: Number(data.minStockAlert) || 10,
           unit: data.unit || 'Pcs',
@@ -126,41 +129,59 @@ export function subscribeToProducts(
 // Add or edit product
 export async function saveProduct(product: Partial<Product> & { id?: string }): Promise<string> {
   try {
+    const rawData = {
+      name: product.name,
+      category: product.category,
+      price: Number(product.price) || 0,
+      buyPrice: Number(product.buyPrice) || 0,
+      profitRatio: Number(product.profitRatio) || 0,
+      sku: product.sku || '',
+      stock: Number(product.stock) || 0,
+      minStockAlert: Number(product.minStockAlert || 10),
+      unit: product.unit || 'Pcs',
+      description: product.description || '',
+      imageUrl: product.imageUrl || '',
+      featured: Boolean(product.featured),
+      rating: Number(product.rating || 5),
+      soldCount: Number(product.soldCount || 0),
+    };
+
+    const sanitizedData = sanitizeFirestoreData(rawData);
+
     if (product.id) {
       const docRef = doc(db, PRODUCTS_COLLECTION, product.id);
-      await updateDoc(docRef, {
-        name: product.name,
-        category: product.category,
-        price: Number(product.price),
-        stock: Number(product.stock),
-        minStockAlert: Number(product.minStockAlert || 10),
-        unit: product.unit,
-        description: product.description,
-        imageUrl: product.imageUrl,
-        featured: Boolean(product.featured),
-        rating: Number(product.rating || 5),
-        soldCount: Number(product.soldCount || 0),
-      });
+      await updateDoc(docRef, sanitizedData);
       return product.id;
     } else {
       const newDocRef = await addDoc(collection(db, PRODUCTS_COLLECTION), {
-        name: product.name,
-        category: product.category,
-        price: Number(product.price),
-        stock: Number(product.stock),
-        minStockAlert: Number(product.minStockAlert || 10),
-        unit: product.unit,
-        description: product.description,
-        imageUrl: product.imageUrl,
-        rating: 5,
-        soldCount: 0,
-        featured: Boolean(product.featured),
+        ...sanitizedData,
         createdAt: new Date().toISOString(),
       });
       return newDocRef.id;
     }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, PRODUCTS_COLLECTION);
+  }
+}
+
+// Batch update product pricing and profit ratios
+export async function batchUpdatePricing(
+  updates: { id: string; price: number; buyPrice?: number; profitRatio?: number }[]
+): Promise<void> {
+  try {
+    const batch = writeBatch(db);
+    for (const u of updates) {
+      const docRef = doc(db, PRODUCTS_COLLECTION, u.id);
+      const updateData: Record<string, any> = {
+        price: Number(u.price) || 0,
+      };
+      if (u.buyPrice !== undefined) updateData.buyPrice = Number(u.buyPrice) || 0;
+      if (u.profitRatio !== undefined) updateData.profitRatio = Number(u.profitRatio) || 0;
+      batch.update(docRef, sanitizeFirestoreData(updateData));
+    }
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, PRODUCTS_COLLECTION);
   }
 }
 
@@ -362,6 +383,13 @@ export async function createOrder(orderPayload: Omit<Order, 'id'>): Promise<stri
   try {
     const rawOrderData = {
       ...orderPayload,
+      orderSource: orderPayload.orderSource || 'online',
+      cashierName: orderPayload.cashierName || '',
+      cashPaidAmount: Number(orderPayload.cashPaidAmount) || 0,
+      cashChangeAmount: Number(orderPayload.cashChangeAmount) || 0,
+      totalCostAmount: Number(orderPayload.totalCostAmount) || 0,
+      totalProfitAmount: Number(orderPayload.totalProfitAmount) || 0,
+      systemDiscountAmount: Number(orderPayload.systemDiscountAmount) || 0,
       customerId: orderPayload.customerId || 'guest',
       customerEmail: orderPayload.customerEmail || '',
       notes: orderPayload.notes || '',
@@ -371,7 +399,7 @@ export async function createOrder(orderPayload: Omit<Order, 'id'>): Promise<stri
       paymentProofDate: orderPayload.paymentProofDate || '',
       adminNotes: orderPayload.adminNotes || '',
       trackingNumber: orderPayload.trackingNumber || '',
-      createdAt: new Date().toISOString(),
+      createdAt: orderPayload.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
@@ -427,12 +455,14 @@ export async function createOrder(orderPayload: Omit<Order, 'id'>): Promise<stri
       await runTransaction(db, async (transaction) => {
         const custSnap = await transaction.get(custRef);
         if (custSnap.exists()) {
-          const currentTotalOrders = Number(custSnap.data().totalOrders) || 0;
-          const currentTotalSpent = Number(custSnap.data().totalSpent) || 0;
+          const prevData = custSnap.data();
+          const currentTotalOrders = Number(prevData.totalOrders) || 0;
+          const currentTotalSpent = Number(prevData.totalSpent) || 0;
+
           transaction.update(custRef, {
             name: orderPayload.customerName,
             address: orderPayload.customerAddress,
-            email: orderPayload.customerEmail || custSnap.data().email || '',
+            email: orderPayload.customerEmail || prevData.email || '',
             totalOrders: currentTotalOrders + 1,
             totalSpent: currentTotalSpent + orderPayload.totalAmount,
             lastOrderDate: new Date().toISOString(),

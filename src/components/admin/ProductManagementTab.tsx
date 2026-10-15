@@ -1,7 +1,29 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Search, RotateCcw, AlertTriangle, Check, Loader2, Sparkles, Image, PackagePlus } from 'lucide-react';
+import { 
+  Plus, 
+  Edit2, 
+  Trash2, 
+  Search, 
+  RotateCcw, 
+  AlertTriangle, 
+  Check, 
+  Loader2, 
+  Sparkles, 
+  Image, 
+  PackagePlus,
+  TrendingUp,
+  Percent,
+  Barcode
+} from 'lucide-react';
 import { Product, ProductCategory } from '../../types';
 import { formatRupiah } from '../../utils/formatters';
+import { 
+  calculateSellingPriceFromBuyPrice, 
+  getProductBuyPrice, 
+  getProductProfitRatio, 
+  getProductSku, 
+  calculateProfitMetrics 
+} from '../../utils/pricingUtils';
 
 interface ProductManagementTabProps {
   products: Product[];
@@ -28,8 +50,12 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
   // Form states
   const [formName, setFormName] = useState('');
   const [formCategory, setFormCategory] = useState<ProductCategory>('Benih & Bibit Unggul');
-  const [formPrice, setFormPrice] = useState<number>(0);
+  const [formSku, setFormSku] = useState('');
+  const [formBuyPrice, setFormBuyPrice] = useState<number>(40000);
+  const [formProfitRatio, setFormProfitRatio] = useState<number>(25);
+  const [formPrice, setFormPrice] = useState<number>(50000);
   const [formStock, setFormStock] = useState<number>(10);
+  const [formMinStock, setFormMinStock] = useState<number>(10);
   const [formUnit, setFormUnit] = useState('Kemasan 1 kg');
   const [formDescription, setFormDescription] = useState('');
   const [formImageUrl, setFormImageUrl] = useState('');
@@ -47,7 +73,10 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
 
   const filteredProducts = products.filter((p) => {
     const matchesCat = selectedCat === 'Semua' || p.category === selectedCat;
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const sku = getProductSku(p);
+    const matchesSearch =
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sku.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCat && matchesSearch;
   });
 
@@ -55,8 +84,12 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
     setEditingProduct(null);
     setFormName('');
     setFormCategory('Benih & Bibit Unggul');
+    setFormSku('');
+    setFormBuyPrice(40000);
+    setFormProfitRatio(25);
     setFormPrice(50000);
     setFormStock(25);
+    setFormMinStock(10);
     setFormUnit('Kemasan 1 kg');
     setFormDescription('');
     setFormImageUrl('https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=800&q=80');
@@ -68,13 +101,40 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
     setEditingProduct(product);
     setFormName(product.name);
     setFormCategory(product.category);
+    setFormSku(getProductSku(product));
+    const buyPrice = getProductBuyPrice(product);
+    const profitRatio = getProductProfitRatio(product);
+    setFormBuyPrice(buyPrice);
+    setFormProfitRatio(profitRatio);
     setFormPrice(product.price);
     setFormStock(product.stock);
+    setFormMinStock(product.minStockAlert || 10);
     setFormUnit(product.unit);
     setFormDescription(product.description);
     setFormImageUrl(product.imageUrl);
     setFormFeatured(product.featured);
     setIsModalOpen(true);
+  };
+
+  // Live Auto Ratio handlers in Form
+  const handleBuyPriceChange = (newBuy: number) => {
+    setFormBuyPrice(newBuy);
+    const calculatedSell = calculateSellingPriceFromBuyPrice(newBuy, formProfitRatio);
+    setFormPrice(calculatedSell);
+  };
+
+  const handleProfitRatioChange = (newRatio: number) => {
+    setFormProfitRatio(newRatio);
+    const calculatedSell = calculateSellingPriceFromBuyPrice(formBuyPrice, newRatio);
+    setFormPrice(calculatedSell);
+  };
+
+  const handleSellingPriceChange = (newSell: number) => {
+    setFormPrice(newSell);
+    if (formBuyPrice > 0) {
+      const ratio = ((newSell - formBuyPrice) / formBuyPrice) * 100;
+      setFormProfitRatio(Math.round(ratio * 10) / 10);
+    }
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -87,8 +147,12 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
         id: editingProduct?.id,
         name: formName.trim(),
         category: formCategory,
+        sku: formSku.trim() || undefined,
+        buyPrice: Number(formBuyPrice) || 0,
+        profitRatio: Number(formProfitRatio) || 0,
         price: Number(formPrice),
         stock: Number(formStock),
+        minStockAlert: Number(formMinStock),
         unit: formUnit.trim(),
         description: formDescription.trim(),
         imageUrl: formImageUrl.trim() || 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80',
@@ -111,6 +175,7 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
       try {
         setIsResetting(true);
         await onResetDefaultProducts();
+        alert('Berhasil mereset 50 produk awal!');
       } finally {
         setIsResetting(false);
       }
@@ -118,37 +183,34 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
   };
 
   return (
-    <div className="space-y-5">
-      {/* Top Action Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-200/80 shadow-2xs">
-        {/* Search & Category */}
+    <div className="space-y-4">
+      {/* Action bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-xs">
         <div className="flex flex-wrap items-center gap-2 flex-1">
-          <div className="relative min-w-56 flex-1">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Cari nama produk pertanian..."
+              placeholder="Cari produk atau SKU kasir..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-emerald-500"
+              className="w-full pl-9 pr-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-emerald-500 text-gray-800"
             />
-            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          {/* Category filter */}
+          <select
+            value={selectedCat}
+            onChange={(e) => setSelectedCat(e.target.value)}
+            className="px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-emerald-500 font-semibold text-gray-700"
+          >
             {categories.map((c) => (
-              <button
-                key={c}
-                onClick={() => setSelectedCat(c)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors ${
-                  selectedCat === c
-                    ? 'bg-emerald-700 text-white shadow-2xs'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
+              <option key={c} value={c}>
                 {c}
-              </button>
+              </option>
             ))}
-          </div>
+          </select>
         </div>
 
         {/* Buttons */}
@@ -156,8 +218,8 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
           <button
             onClick={handleReset}
             disabled={isResetting}
-            title="Reset ke 50 produk default EcoAgro"
-            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Muat ulang 50 produk pertanian resmi bawaan sistem"
+            className="px-3 py-2 rounded-xl text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <RotateCcw className={`w-3.5 h-3.5 ${isResetting ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Reset 50 Produk</span>
@@ -165,7 +227,7 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
 
           <button
             onClick={openAddModal}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Tambah Produk</span>
@@ -173,25 +235,17 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
         </div>
       </div>
 
-      {/* Product Table */}
-      <div className="bg-white rounded-2xl border border-gray-200/90 shadow-2xs overflow-hidden">
-        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-          <div className="text-xs font-bold text-gray-900">
-            Total Produk Terdaftar: <span className="text-emerald-700">{products.length}</span> (Menampilkan {filteredProducts.length})
-          </div>
-          <div className="text-[11px] text-gray-500">
-            Data tersinkronisasi otomatis dengan Firestore Database
-          </div>
-        </div>
-
+      {/* Product List Table */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-gray-50 text-gray-600 uppercase text-[10px] font-bold border-b border-gray-200">
+          <table className="w-full text-left text-xs text-gray-600">
+            <thead className="bg-gray-50/70 border-b border-gray-100 text-[10px] font-black uppercase tracking-wider text-gray-400">
               <tr>
-                <th className="py-3 px-4">Produk</th>
+                <th className="py-3 px-4">Produk & SKU</th>
                 <th className="py-3 px-4">Kategori</th>
-                <th className="py-3 px-4">Harga (IDR)</th>
-                <th className="py-3 px-4 text-center">Stok & Kontrol</th>
+                <th className="py-3 px-4">Modal Beli</th>
+                <th className="py-3 px-4">Harga Jual</th>
+                <th className="py-3 px-4 text-center">Stok Gudang</th>
                 <th className="py-3 px-4 text-center">Terjual</th>
                 <th className="py-3 px-4 text-right">Aksi</th>
               </tr>
@@ -199,7 +253,10 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
             <tbody className="divide-y divide-gray-100">
               {filteredProducts.map((p) => {
                 const isOutOfStock = p.stock <= 0;
-                const isLowStock = p.stock > 0 && p.stock <= 10;
+                const isLowStock = p.stock > 0 && p.stock <= (p.minStockAlert || 10);
+                const buyPrice = getProductBuyPrice(p);
+                const profitRatio = getProductProfitRatio(p);
+                const sku = getProductSku(p);
 
                 return (
                   <tr key={p.id} className="hover:bg-gray-50/70 transition-colors">
@@ -213,7 +270,11 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
                         />
                         <div className="min-w-0">
                           <div className="font-bold text-gray-900 line-clamp-1">{p.name}</div>
-                          <div className="text-[11px] text-gray-400 mt-0.5">{p.unit}</div>
+                          <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-[#8B5E3C]">{sku}</span>
+                            <span>•</span>
+                            <span>{p.unit}</span>
+                          </div>
                           {p.featured && (
                             <span className="inline-block text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded mt-0.5">
                               Unggulan
@@ -228,6 +289,12 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                         {p.category}
                       </span>
+                    </td>
+
+                    {/* Modal Beli */}
+                    <td className="py-3 px-4 whitespace-nowrap text-gray-600">
+                      <div>{formatRupiah(buyPrice)}</div>
+                      <div className="text-[10px] text-[#2D6A4F] font-bold">Markup +{profitRatio}%</div>
                     </td>
 
                     {/* Price */}
@@ -258,63 +325,73 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
                         </button>
                       </div>
 
-                      <div className="mt-1">
-                        {isOutOfStock ? (
-                          <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">Habis</span>
-                        ) : isLowStock ? (
-                          <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">Menipis ({p.stock})</span>
-                        ) : (
-                          <span className="text-[9px] text-gray-400">Aman</span>
-                        )}
-                      </div>
+                      {isLowStock && (
+                        <div className="text-[10px] text-amber-600 font-bold mt-1">Stok Kritis</div>
+                      )}
+                      {isOutOfStock && (
+                        <div className="text-[10px] text-rose-600 font-bold mt-1">Stok Habis</div>
+                      )}
                     </td>
 
                     {/* Sold count */}
-                    <td className="py-3 px-4 text-center font-bold text-gray-700">
+                    <td className="py-3 px-4 whitespace-nowrap text-center font-bold text-gray-700">
                       {p.soldCount}
                     </td>
 
                     {/* Actions */}
-                    <td className="py-3 px-4 text-right whitespace-nowrap">
+                    <td className="py-3 px-4 whitespace-nowrap text-right">
                       <div className="inline-flex items-center gap-1.5">
                         <button
                           onClick={() => openEditModal(p)}
-                          className="p-1.5 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
-                          title="Edit produk"
+                          className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
+                          title="Edit Produk"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(p.id, p.name)}
-                          className="p-1.5 text-gray-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                          title="Hapus produk"
+                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+                          title="Hapus Produk"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
                   </tr>
                 );
               })}
+
+              {filteredProducts.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="text-center py-8 text-gray-400">
+                    Tidak ada produk yang cocok dengan pencarian "{searchTerm}"
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Add / Edit Modal */}
+      {/* Modal Tambah / Edit Produk */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div 
-            className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-emerald-100 my-8"
+            className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden my-8"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-5 bg-emerald-900 text-white flex items-center justify-between">
-              <h3 className="font-black text-base">
-                {editingProduct?.id ? 'Edit Data Produk Pertanian' : 'Tambah Produk Pertanian Baru'}
-              </h3>
+            <div className="p-5 bg-gradient-to-r from-emerald-800 to-emerald-950 text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-base">
+                  {editingProduct ? 'Edit Data Produk Pertanian' : 'Tambah Produk Pertanian Baru'}
+                </h3>
+                <p className="text-xs text-emerald-200">
+                  Lengkapi data produk, SKU, modal beli, dan kalkulasi rasio profit otomatis
+                </p>
+              </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg bg-emerald-800 hover:bg-emerald-700 text-white cursor-pointer"
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
               >
                 ✕
               </button>
@@ -356,6 +433,83 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Kode Barcode / SKU Kasir
+                  </label>
+                  <input
+                    type="text"
+                    value={formSku}
+                    onChange={(e) => setFormSku(e.target.value)}
+                    placeholder="Contoh: ECO-BNH-001"
+                    className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-emerald-500 font-mono uppercase"
+                  />
+                </div>
+              </div>
+
+              {/* Sesi Auto Ratio Profit & Penetapan Harga */}
+              <div className="p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#E8DEC8] space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#1B4332]">
+                  <TrendingUp className="w-4 h-4 text-[#2D6A4F]" />
+                  <span>Kalkulasi Otomatis Harga Jual dari Modal Beli</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                      Harga Beli / HPP (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      step={1000}
+                      value={formBuyPrice}
+                      onChange={(e) => handleBuyPriceChange(Number(e.target.value))}
+                      className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl outline-none font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                      Rasio Markup (%)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={1}
+                        max={300}
+                        value={formProfitRatio}
+                        onChange={(e) => handleProfitRatioChange(Number(e.target.value))}
+                        className="w-full pl-3 pr-7 py-2 text-xs bg-white border border-gray-200 rounded-xl outline-none font-bold text-center"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 font-bold">%</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                      Harga Jual Akhir (Rp) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={1000}
+                      step={1000}
+                      value={formPrice}
+                      onChange={(e) => handleSellingPriceChange(Number(e.target.value))}
+                      className="w-full px-3 py-2 text-xs bg-white border-2 border-[#2D6A4F] rounded-xl outline-none font-black text-[#1B4332]"
+                    />
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-[#2D6A4F] font-bold flex justify-between bg-white px-3 py-1.5 rounded-xl border border-[#D5C7B0]">
+                  <span>Estimasi Laba Kotor per Unit:</span>
+                  <span>+{formatRupiah(formPrice - formBuyPrice)} ({formPrice > 0 ? Math.round(((formPrice - formBuyPrice) / formPrice) * 100) : 0}% margin)</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
                     Satuan / Kemasan
                   </label>
                   <input
@@ -363,31 +517,14 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
                     required
                     value={formUnit}
                     onChange={(e) => setFormUnit(e.target.value)}
-                    placeholder="Contoh: Kemasan 1 kg / Botol 500 ml"
-                    className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-emerald-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Harga Jual (Rp) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min={1000}
-                    step={1000}
-                    value={formPrice}
-                    onChange={(e) => setFormPrice(Number(e.target.value))}
+                    placeholder="Kemasan 1 kg"
                     className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-emerald-500"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Jumlah Stok Fisik <span className="text-rose-500">*</span>
+                    Stok Fisik <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -395,6 +532,19 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
                     min={0}
                     value={formStock}
                     onChange={(e) => setFormStock(Number(e.target.value))}
+                    className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Ambang Stok Kritis
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={formMinStock}
+                    onChange={(e) => setFormMinStock(Number(e.target.value))}
                     className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-emerald-500"
                   />
                 </div>
@@ -418,42 +568,51 @@ export const ProductManagementTab: React.FC<ProductManagementTabProps> = ({
                   Deskripsi & Manfaat Produk
                 </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="Jelaskan keunggulan varietas, dosis pemakaian per tangki, dll..."
-                  className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-emerald-500"
+                  placeholder="Jelaskan kegunaan, dosis, dan petunjuk pemakaian..."
+                  className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-emerald-500 resize-none"
                 />
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 pt-1">
                 <input
                   type="checkbox"
-                  id="featuredCheckbox"
+                  id="featured"
                   checked={formFeatured}
                   onChange={(e) => setFormFeatured(e.target.checked)}
-                  className="w-4 h-4 text-emerald-600 rounded"
+                  className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                 />
-                <label htmlFor="featuredCheckbox" className="text-xs font-semibold text-gray-700">
-                  Tandai sebagai Produk Unggulan di Halaman Utama
+                <label htmlFor="featured" className="text-xs font-medium text-gray-700 cursor-pointer">
+                  Tampilkan sebagai Produk Unggulan di Beranda
                 </label>
               </div>
 
-              <div className="pt-3 border-t border-gray-100 flex justify-end gap-2">
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
                 >
-                  {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                  <span>{editingProduct?.id ? 'Simpan Perubahan' : 'Tambah Produk'}</span>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Simpan Produk</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

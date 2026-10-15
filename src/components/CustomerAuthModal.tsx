@@ -34,6 +34,7 @@ export const CustomerAuthModal: React.FC<CustomerAuthModalProps> = ({
         phone: customPhone.trim() || '085600556628',
         address: customAddress.trim() || 'Jl. Pertanian Makmur Indonesia',
         role: 'customer',
+        totalOrders: 0,
         createdAt: new Date().toISOString(),
       };
 
@@ -74,10 +75,10 @@ export const CustomerAuthModal: React.FC<CustomerAuthModalProps> = ({
           <div className="p-4 bg-[#D8F3DC]/60 border border-[#74C69D] rounded-2xl text-center space-y-3">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#1B4332] text-[#FEF3C7] rounded-full text-[11px] font-black uppercase tracking-wider">
               <Sparkles className="w-3 h-3 text-[#F59E0B]" />
-              Akses Langsung Tanpa Login
+              Akses Langsung Tanpa Kata Sandi
             </div>
             <p className="text-xs text-[#1B4332] font-semibold leading-relaxed">
-              Anda tidak perlu mendaftar atau mengingat kata sandi. Klik tombol di bawah ini untuk langsung aktif sebagai Pelanggan EcoAgro!
+              Masuk sebagai Pelanggan EcoAgro untuk kemudahan memesan sarana tani, mencatat riwayat pesanan, dan konfirmasi bukti transfer.
             </p>
             <button
               type="button"

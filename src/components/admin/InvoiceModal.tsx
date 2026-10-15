@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Printer, Sprout, CheckCircle2 } from 'lucide-react';
 import { Order } from '../../types';
 import { formatRupiah, formatDateIndo, getPaymentMethodInfo } from '../../utils/formatters';
+import { EcoAgroLogo } from '../EcoAgroLogo';
 
 interface InvoiceModalProps {
   order: Order | null;
@@ -48,15 +49,13 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) =>
           {/* Brand & Store Header */}
           <div className="flex items-start justify-between border-b-2 border-emerald-700 pb-5">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-[#1B4332] text-white flex items-center justify-center font-black">
-                <Sprout className="w-7 h-7 text-[#95D5B2]" />
-              </div>
+              <EcoAgroLogo size="md" showText={false} />
               <div>
                 <h1 className="text-xl font-extrabold text-[#1B4332] tracking-tight">
                   ECOAGRO INDONESIA
                 </h1>
                 <p className="text-xs text-[#78350F]">Pusat Benih, Pupuk, Mesin & Alat Pertanian Modern</p>
-                <p className="text-[11px] text-gray-500">Jl. Raya Agro Pertanian No. 88 | WA: 0812-3456-7890</p>
+                <p className="text-[11px] text-gray-500">Jl. Raya Agro Pertanian No. 88 | WA: 085600556628</p>
               </div>
             </div>
 
@@ -75,7 +74,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) =>
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
                 Penerima / Petani:
               </span>
-              <div className="font-extrabold text-gray-900 text-sm">{order.customerName}</div>
+              <div className="font-extrabold text-gray-900 text-sm">
+                {order.customerName}
+              </div>
               <div className="text-gray-600 mt-0.5">WA: {order.customerPhone}</div>
               <div className="text-gray-500 mt-0.5 text-[11px] leading-tight">{order.customerAddress}</div>
             </div>
@@ -111,14 +112,49 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) =>
                     <span className="text-[10px] text-gray-400">{it.unit}</span>
                   </td>
                   <td className="py-2.5 text-center font-bold text-gray-700">{it.quantity}</td>
-                  <td className="py-2.5 text-right text-gray-600">{formatRupiah(it.price)}</td>
-                  <td className="py-2.5 text-right font-bold text-gray-900">{formatRupiah(it.subtotal)}</td>
+                  <td className="py-2.5 text-right text-gray-600">
+                    {it.price === 0 ? 'GRATIS' : formatRupiah(it.price)}
+                  </td>
+                  <td className="py-2.5 text-right font-bold text-gray-900">
+                    {it.price === 0 ? 'Rp 0' : formatRupiah(it.subtotal)}
+                  </td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-gray-200">
-                <td colSpan={3} className="py-3 text-right font-bold text-gray-600">
+                <td colSpan={3} className="py-2 text-right text-gray-600">
+                  Subtotal Produk:
+                </td>
+                <td className="py-2 text-right font-bold text-gray-900">
+                  {formatRupiah(order.subtotalAmount)}
+                </td>
+              </tr>
+
+              {order.systemDiscountAmount !== undefined && order.systemDiscountAmount > 0 && (
+                <tr>
+                  <td colSpan={3} className="py-1 text-right text-[#1B4332] font-semibold">
+                    Diskon 10% (Belanja ≥ 1 Jt):
+                  </td>
+                  <td className="py-1 text-right font-bold text-[#1B4332]">
+                    -{formatRupiah(order.systemDiscountAmount)}
+                  </td>
+                </tr>
+              )}
+
+              {order.discountAmount > 0 && !order.systemDiscountAmount && (
+                <tr>
+                  <td colSpan={3} className="py-1 text-right text-[#1B4332] font-semibold">
+                    Potongan Diskon:
+                  </td>
+                  <td className="py-1 text-right font-bold text-[#1B4332]">
+                    -{formatRupiah(order.discountAmount)}
+                  </td>
+                </tr>
+              )}
+
+              <tr className="border-t border-gray-300">
+                <td colSpan={3} className="py-3 text-right font-bold text-gray-800 text-sm">
                   Total Pembayaran:
                 </td>
                 <td className="py-3 text-right text-base font-black text-emerald-800">

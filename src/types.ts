@@ -7,6 +7,7 @@ export interface UserAccount {
   phone: string;
   address: string;
   role: UserRole;
+  totalOrders?: number;
   createdAt: string;
 }
 
@@ -22,14 +23,13 @@ export interface Product {
   id: string;
   name: string;
   category: ProductCategory;
-  price: number;              // Harga Jual Konsumen
-  costPrice?: number;         // Harga Beli / Modal Supplier (HPP)
-  profitRatio?: number;       // Rasio Profit (%) dari Harga Beli
-  profitNominal?: number;     // Estimasi Laba per unit (price - costPrice)
-  barcode?: string;           // Kode Barcode / SKU Kasir untuk quick scan
-  stock: number;
+  price: number;              // Harga Jual ke Petani/Pelanggan
+  buyPrice?: number;          // Harga Beli / HPP Modal dari Distributor
+  profitRatio?: number;       // Rasio Profit Markup % (misal: 25%)
+  sku?: string;               // Barcode / SKU Kasir
+  stock: number;              // Stok fisik saat ini
   minStockAlert?: number;     // Ambang batas stok kritis (default 10)
-  unit: string;
+  unit: string;               // Satuan (kg, liter, sak, botol, roll, unit)
   description: string;
   imageUrl: string;
   rating: number;
@@ -48,28 +48,30 @@ export type OrderStatus =
   | 'proof_submitted'   // Menunggu Approval Admin
   | 'processing'        // Pembayaran Disetujui / Sedang Diproses
   | 'shipped'           // Sedang Dikirim
-  | 'completed'         // Pesanan Selesai
+  | 'completed'         // Pesanan Selesai / Selesai Kasir
   | 'cancelled';        // Dibatalkan / Bukti Ditolak
 
 export type PaymentMethod = 
+  | 'cash'              // Tunai / Kasir Cash
   | 'transfer_bca' 
   | 'transfer_mandiri' 
   | 'transfer_bri' 
   | 'qris'
   | 'cod'               // Bayar di Tempat
-  | 'cash'              // Tunai Kasir POS
-  | 'debt';             // Hutang / Bon Petani (Tempo)
+  | 'piutang';          // Bon / Tempo Petani
 
 export type ShippingCourier = 
   | 'kurir_toko'        // Kurir Internal Toko EcoAgro
   | 'jne_kargo'         // JNE Trucking / Kargo Pertanian
-  | 'ambil_gudang';     // Ambil Sendiri di Gudang
+  | 'ambil_gudang'      // Ambil Sendiri di Gudang
+  | 'langsung_kasir';   // Transaksi Langsung di Toko (POS)
 
 export interface OrderItem {
   productId: string;
   name: string;
   price: number;
-  costPrice?: number;   // Modal untuk pencatatan margin POS
+  buyPrice?: number;
+  sku?: string;
   quantity: number;
   unit: string;
   subtotal: number;
@@ -79,7 +81,9 @@ export interface OrderItem {
 export interface Order {
   id: string;
   orderNumber: string;
-  customerId?: string;  // ID Pelanggan terdaftar
+  orderSource?: 'pos' | 'online';  // Kasir Toko atau Pesanan Web
+  cashierName?: string;
+  customerId?: string;             // ID Pelanggan
   customerEmail?: string;
   customerName: string;
   customerPhone: string;
@@ -89,20 +93,21 @@ export interface Order {
   subtotalAmount: number;
   discountAmount: number;
   discountReason?: string;
+  systemDiscountAmount?: number;   // Potongan 10% sistem jika >= 1 Jt
   couponCode?: string;
   shippingCourier: ShippingCourier;
   shippingFee: number;
   totalAmount: number;
   status: OrderStatus;
   paymentMethod: PaymentMethod;
+  cashPaidAmount?: number;         // Uang tunai diterima kasir
+  cashChangeAmount?: number;       // Uang kembalian kasir
+  totalCostAmount?: number;        // Total HPP Modal
+  totalProfitAmount?: number;      // Total Laba Kotor Transaksi
   paymentProofUrl?: string;
   paymentProofDate?: string;
   adminNotes?: string;
   trackingNumber?: string;
-  source?: 'pos' | 'webstore'; // Sumber transaksi (POS Kasir fisik vs Webstore online)
-  cashReceived?: number;       // Nominal uang tunai diterima di kasir
-  cashChange?: number;         // Uang kembalian kasir
-  cashierName?: string;        // Nama staf/admin kasir
   createdAt: string;
   updatedAt: string;
 }

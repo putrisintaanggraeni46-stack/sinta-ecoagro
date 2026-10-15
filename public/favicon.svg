@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <!-- Definitions for gradients and clipping -->
+  <defs>
+    <!-- Circle clip path for bottom field terraces -->
+    <clipPath id="circleClip">
+      <circle cx="250" cy="180" r="125" />
+    </clipPath>
+  </defs>
+
+  <!-- Group for Emblem (Centred around cx=250, cy=180) -->
+  <g id="emblem">
+    <!-- Outer Green Crescent Arc -->
+    <path 
+      d="M 148,215 C 135,170 145,115 185,82 C 225,50 280,50 320,82 C 342,100 355,125 358,155 C 358,158 354,162 350,161 C 335,158 322,148 312,136 C 285,103 235,98 202,125 C 182,142 172,168 174,195 C 174,204 170,212 161,215 C 156,216 150,217 148,215 Z" 
+      fill="#38A149" 
+    />
+
+    <!-- Bottom Field Slices (Clipped to circular boundary) -->
+    <g clip-path="url(#circleClip)">
+      <!-- 1. Topmost Dark Forest Ridge -->
+      <path 
+        d="M 115,225 Q 230,190 385,215 L 385,245 Q 240,225 115,255 Z" 
+        fill="#184E28" 
+      />
+
+      <!-- White separator line 1 -->
+      <path 
+        d="M 115,255 Q 240,225 385,245" 
+        fill="none" 
+        stroke="#FFFFFF" 
+        stroke-width="5" 
+        stroke-linecap="round" 
+      />
+
+      <!-- 2. Second Terrace Stripe (Medium Forest Green) -->
+      <path 
+        d="M 115,255 Q 240,225 385,245 L 385,275 Q 250,255 115,285 Z" 
+        fill="#267336" 
+      />
+
+      <!-- White separator line 2 -->
+      <path 
+        d="M 115,285 Q 250,255 385,275" 
+        fill="none" 
+        stroke="#FFFFFF" 
+        stroke-width="5" 
+        stroke-linecap="round" 
+      />
+
+      <!-- 3. Third Terrace Stripe (Lush Leaf Green) -->
+      <path 
+        d="M 115,285 Q 250,255 385,275 L 385,305 Q 260,285 115,315 Z" 
+        fill="#3A9348" 
+      />
+
+      <!-- White separator line 3 -->
+      <path 
+        d="M 115,315 Q 260,285 385,305" 
+        fill="none" 
+        stroke="#FFFFFF" 
+        stroke-width="5" 
+        stroke-linecap="round" 
+      />
+
+      <!-- 4. Fourth Terrace Stripe (Bright Fresh Green) -->
+      <path 
+        d="M 115,315 Q 260,285 385,305 L 385,340 L 115,340 Z" 
+        fill="#5DB351" 
+      />
+    </g>
+
+    <!-- Center Sprout -->
+    <!-- Stem -->
+    <path 
+      d="M 245,215 Q 247,185 249,165 Q 251,185 253,215 Z" 
+      fill="#267336" 
+    />
+
+    <!-- Right Shadow Leaf (Darker Green) -->
+    <path 
+      d="M 250,185 C 275,180 315,182 345,190 C 330,215 285,225 250,205 Z" 
+      fill="#184E28" 
+    />
+
+    <!-- Left Leaf (Vibrant Bright Green) -->
+    <path 
+      d="M 248,175 C 235,145 198,125 182,120 C 190,155 220,180 248,175 Z" 
+      fill="#43A047" 
+    />
+
+    <!-- Right Top Leaf (Vibrant Leaf Green) -->
+    <path 
+      d="M 251,175 C 265,140 305,105 332,105 C 330,140 295,175 251,175 Z" 
+      fill="#43A047" 
+    />
+  </g>
+
+  <!-- Typography -->
+  <!-- Brand Name: ECOAGRO -->
+  <text 
+    x="250" 
+    y="390" 
+    text-anchor="middle" 
+    font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" 
+    font-size="64" 
+    font-weight="900" 
+    letter-spacing="2" 
+    fill="#1B4332"
+  >
+    ECOAGRO
+  </text>
+
+  <!-- Tagline: — Toko Pertanian — -->
+  <g id="tagline">
+    <!-- Left Dash -->
+    <line x1="85" y1="422" x2="115" y2="422" stroke="#1B4332" stroke-width="3" stroke-linecap="round" />
+    
+    <!-- Text -->
+    <text 
+      x="250" 
+      y="428" 
+      text-anchor="middle" 
+      font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" 
+      font-size="24" 
+      font-weight="700" 
+      letter-spacing="6" 
+      fill="#1B4332"
+    >
+      Toko Pertanian
+    </text>
+
+    <!-- Right Dash -->
+    <line x1="385" y1="422" x2="415" y2="422" stroke="#1B4332" stroke-width="3" stroke-linecap="round" />
+  </g>
+</svg>

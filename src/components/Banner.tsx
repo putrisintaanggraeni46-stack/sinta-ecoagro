@@ -46,28 +46,28 @@ export const Banner: React.FC = () => {
       </div>
 
       {/* Prominent Automatic Discount Banner */}
-      <div className="mt-4 bg-gradient-to-r from-[#FEF3C7] via-[#FFFBEB] to-[#D8F3DC] border-2 border-[#F59E0B]/50 p-4 sm:p-5 rounded-3xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="mt-4 bg-gradient-to-r from-[#FEF3C7] via-[#FFFBEB] to-[#EAE0D0] border-2 border-[#D97706]/40 p-4 sm:p-5 rounded-3xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#F59E0B] to-[#D97706] text-white flex items-center justify-center shrink-0 shadow-md">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#D97706] to-[#92400E] text-white flex items-center justify-center shrink-0 shadow-md">
             <Percent className="w-6 h-6 stroke-[2.5]" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#2D6A4F] text-white">
+              <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#1B4332] text-[#FEF3C7]">
                 PROMO OTOMATIS
               </span>
               <h3 className="text-sm sm:text-base font-black text-[#1B4332]">
-                Belanja Minimal Rp 1.000.000 Otomatis Potong Diskon 10%!
+                Belanja Minimal Rp 1 Juta Otomatis Diskon 10%!
               </h3>
             </div>
-            <p className="text-xs text-[#78350F]/80 mt-0.5">
-              Khusus petani & pekebun: Cukup tambahkan produk apa saja ke keranjang hingga minimal 1 Juta, diskon 10% langsung otomatis terpotong saat checkout tanpa repot kupon.
+            <p className="text-xs text-[#78350F]/90 mt-1">
+              Nikmati potongan harga langsung 10% secara otomatis untuk seluruh pembelian produk pertanian dengan total transaksi minimal Rp 1.000.000.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 text-xs font-bold text-[#1B4332] bg-white/80 px-3.5 py-2 rounded-2xl border border-[#FDE68A]">
-          <Sparkles className="w-4 h-4 text-[#F59E0B]" />
+        <div className="flex items-center gap-2 shrink-0 text-xs font-bold text-[#1B4332] bg-white/90 px-3.5 py-2 rounded-2xl border border-[#FDE68A] shadow-2xs">
+          <Sparkles className="w-4 h-4 text-[#D97706]" />
           <span>Hemat hingga ratusan ribu rupiah!</span>
         </div>
       </div>
@@ -108,7 +108,7 @@ export const Banner: React.FC = () => {
             href="https://wa.me/6285600556628?text=Halo%20EcoAgro,%20ada%20kendala%20yang%20ingin%20saya%20tanyakan"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full py-1.5 px-3 bg-[#25D366] hover:bg-[#20BA5C] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+            className="w-full py-2 px-3 bg-[#4A3E31] hover:bg-[#32281E] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-2xs cursor-pointer border border-[#6B5A47]"
           >
             <span>Jika ada kendala silahkan hubungi</span>
           </a>

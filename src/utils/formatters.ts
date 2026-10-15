@@ -1,7 +1,7 @@
 import { OrderStatus, PaymentMethod, ShippingCourier } from '../types';
 
-export const AUTO_DISCOUNT_THRESHOLD = 1000000; // Minimal 1 Juta Rupiah
-export const AUTO_DISCOUNT_PERCENT = 10; // Diskon 10%
+export const AUTO_DISCOUNT_THRESHOLD = 1000000; // Minimal 1 Juta Rupiah (Diskon Sistem 10%)
+export const AUTO_DISCOUNT_PERCENT = 10; // Diskon 10% dari sistem
 
 export function formatRupiah(amount: number): string {
   return new Intl.NumberFormat('id-ID', {
@@ -29,45 +29,80 @@ export function formatDateIndo(dateStr: string): string {
 
 export interface DiscountCalculation {
   subtotal: number;
-  discountAmount: number;
-  discountPercent: number;
+  systemDiscountPercent: number;
+  systemDiscountAmount: number;
+  subtotalAfterSystem: number;
+  couponDiscountAmount: number;
+  discountAmount: number;       // Total potongan gabungan
+  discountPercent: number;      // Persentase efektif
   discountReason: string;
+  breakdownReasons: string[];
   qualifiesForAutoDiscount: boolean;
   remainingForAutoDiscount: number;
   finalTotal: number;
 }
 
-export function calculateCartDiscount(subtotal: number, couponCode?: string): DiscountCalculation {
+/**
+ * Menghitung diskon toko:
+ * - Jika belanja >= 1 jt: dipotong 10% otomatis oleh sistem.
+ * - Diskon kupon opsional (PANENRAYA / ECOAGRO50).
+ */
+export function calculateCartDiscount(
+  subtotal: number, 
+  couponCode?: string
+): DiscountCalculation {
   const cleanCoupon = (couponCode || '').trim().toUpperCase();
   const qualifiesForAuto = subtotal >= AUTO_DISCOUNT_THRESHOLD;
   const remaining = Math.max(0, AUTO_DISCOUNT_THRESHOLD - subtotal);
 
-  let discountAmount = 0;
-  let discountPercent = 0;
-  let discountReason = '';
+  let systemDiscountPercent = 0;
+  let systemDiscountAmount = 0;
+  let couponDiscountAmount = 0;
+  const breakdownReasons: string[] = [];
 
+  // 1. Potongan 10% oleh Sistem jika belanja >= 1 Juta
   if (qualifiesForAuto) {
-    discountPercent = AUTO_DISCOUNT_PERCENT;
-    discountAmount = Math.round(subtotal * (AUTO_DISCOUNT_PERCENT / 100));
-    discountReason = `Diskon Otomatis ${AUTO_DISCOUNT_PERCENT}% (Belanja >= Rp 1.000.000)`;
-  } else if (cleanCoupon === 'PANENRAYA') {
-    discountPercent = 5;
-    discountAmount = Math.round(subtotal * 0.05);
-    discountReason = 'Kupon Promo Panen Raya (Diskon 5%)';
+    systemDiscountPercent = AUTO_DISCOUNT_PERCENT;
+    systemDiscountAmount = Math.round(subtotal * (AUTO_DISCOUNT_PERCENT / 100));
+    breakdownReasons.push(`Diskon 10% (Belanja ≥ 1 Jt): -${formatRupiah(systemDiscountAmount)}`);
+  }
+
+  const subtotalAfterSystem = Math.max(0, subtotal - systemDiscountAmount);
+
+  // 2. Kupon Tambahan jika ada
+  if (cleanCoupon === 'PANENRAYA') {
+    couponDiscountAmount = Math.round(subtotalAfterSystem * 0.05);
+    breakdownReasons.push(`Kupon PANENRAYA (5%): -${formatRupiah(couponDiscountAmount)}`);
   } else if (cleanCoupon === 'ECOAGRO50' && subtotal >= 300000) {
-    discountAmount = 50000;
-    discountPercent = Math.round((50000 / subtotal) * 100);
-    discountReason = 'Kupon Potongan Langsung Rp 50.000';
+    couponDiscountAmount = Math.min(subtotalAfterSystem, 50000);
+    breakdownReasons.push(`Kupon ECOAGRO50: -${formatRupiah(couponDiscountAmount)}`);
+  }
+
+  const totalDiscount = systemDiscountAmount + couponDiscountAmount;
+  const effectivePercent = subtotal > 0 ? Math.round((totalDiscount / subtotal) * 100) : 0;
+
+  let combinedReason = '';
+  if (systemDiscountAmount > 0 && couponDiscountAmount > 0) {
+    combinedReason = 'Diskon 10% (≥ 1 Jt) + Kupon Promo';
+  } else if (systemDiscountAmount > 0) {
+    combinedReason = 'Diskon Otomatis 10% (Belanja ≥ 1 Jt)';
+  } else if (couponDiscountAmount > 0) {
+    combinedReason = 'Potongan Kupon Promo';
   }
 
   return {
     subtotal,
-    discountAmount,
-    discountPercent,
-    discountReason,
+    systemDiscountPercent,
+    systemDiscountAmount,
+    subtotalAfterSystem,
+    couponDiscountAmount,
+    discountAmount: totalDiscount,
+    discountPercent: effectivePercent,
+    discountReason: combinedReason,
+    breakdownReasons,
     qualifiesForAutoDiscount: qualifiesForAuto,
     remainingForAutoDiscount: remaining,
-    finalTotal: Math.max(0, subtotal - discountAmount),
+    finalTotal: Math.max(0, subtotal - totalDiscount),
   };
 }
 
@@ -166,7 +201,24 @@ export function getPaymentMethodInfo(method: PaymentMethod): BankAccountInfo {
         logoColor: 'text-rose-700 bg-rose-50 border-rose-200',
         instruction: 'Scan pakai GoPay, OVO, Dana, ShopeePay, atau m-Banking',
       };
+    case 'cash':
+      return {
+        name: 'Tunai Kasir (Cash)',
+        accountNumber: 'KASIR TOKO ECOAGRO',
+        accountHolder: 'KASIR ECOAGRO',
+        logoColor: 'text-[#1B4332] bg-[#D8F3DC] border-[#74C69D]',
+        instruction: 'Pembayaran tunai langsung di meja kasir toko',
+      };
+    case 'piutang':
+      return {
+        name: 'Bon / Tempo Petani',
+        accountNumber: 'PIUTANG KELOMPOK TANI',
+        accountHolder: 'ECOAGRO KREDIT TANI',
+        logoColor: 'text-[#78350F] bg-[#FEF3C7] border-[#FDE68A]',
+        instruction: 'Dicatat sebagai piutang jatuh tempo panen petani',
+      };
     case 'cod':
+    default:
       return {
         name: 'COD (Bayar di Tempat)',
         accountNumber: 'TUNAI SAAT BARANG TIBA',
@@ -196,6 +248,13 @@ export function getCourierInfo(courier: ShippingCourier): { name: string; fee: n
         name: 'Ambil Sendiri di Gudang EcoAgro',
         fee: 0,
         desc: 'Ambil langsung di Gudang Pusat EcoAgro tanpa antre',
+      };
+    case 'langsung_kasir':
+    default:
+      return {
+        name: 'Bawa Langsung dari Kasir Toko',
+        fee: 0,
+        desc: 'Barang langsung diserahkan di meja kasir EcoAgro',
       };
   }
 }

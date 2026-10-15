@@ -12,10 +12,17 @@ import {
   Truck, 
   Banknote, 
   Sparkles, 
-  ShieldCheck 
+  ShieldCheck,
+  Tag
 } from 'lucide-react';
 import { CartItem, Order, PaymentMethod, ShippingCourier, UserAccount } from '../types';
-import { formatRupiah, getPaymentMethodInfo, getCourierInfo, calculateCartDiscount } from '../utils/formatters';
+import { 
+  formatRupiah, 
+  getPaymentMethodInfo, 
+  getCourierInfo, 
+  calculateCartDiscount,
+  AUTO_DISCOUNT_THRESHOLD
+} from '../utils/formatters';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -92,6 +99,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       const orderNumber = `ECO-${datePart}-${randomSuffix}`;
 
+      const orderItems = cartItems.map((ci) => ({
+        productId: ci.product.id,
+        name: ci.product.name,
+        price: ci.product.price,
+        quantity: ci.quantity,
+        unit: ci.product.unit,
+        subtotal: ci.product.price * ci.quantity,
+        imageUrl: ci.product.imageUrl || '',
+      }));
+
       const orderPayload: Omit<Order, 'id'> = {
         orderNumber,
         customerId: loggedInCustomer?.id || 'guest',
@@ -100,18 +117,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         customerPhone: customerPhone.trim(),
         customerAddress: customerAddress.trim(),
         notes: notes.trim() || '',
-        items: cartItems.map((ci) => ({
-          productId: ci.product.id,
-          name: ci.product.name,
-          price: ci.product.price,
-          quantity: ci.quantity,
-          unit: ci.product.unit,
-          subtotal: ci.product.price * ci.quantity,
-          imageUrl: ci.product.imageUrl || '',
-        })),
+        items: orderItems,
         subtotalAmount: rawSubtotal,
         discountAmount: discountInfo.discountAmount || 0,
         discountReason: discountInfo.discountReason || '',
+        systemDiscountAmount: discountInfo.systemDiscountAmount || 0,
         couponCode: couponCode ? couponCode.trim() : '',
         shippingCourier,
         shippingFee: 0,
@@ -147,7 +157,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           <div>
             <h2 className="text-lg sm:text-xl font-black">Formulir Checkout EcoAgro</h2>
             <p className="text-xs text-[#D8F3DC] mt-0.5">
-              Isi data pengiriman lahan & pilih metode pembayaran
+              Isi data pengiriman & pilih metode pembayaran
             </p>
           </div>
           <button
@@ -354,11 +364,62 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             )}
           </div>
 
-          {/* Section 4: Ringkasan & Diskon Otomatis 10% */}
+          {/* Section 4: Promo Diskon Otomatis & Kupon */}
+          <div className="p-4 bg-[#FAF8F5] rounded-2xl border border-[#E8DEC8] space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-[#D8F3DC] text-[#1B4332] text-[11px] font-black flex items-center justify-center">4</span>
+                Promo & Potongan Harga
+              </h3>
+            </div>
+
+            {discountInfo.qualifiesForAutoDiscount ? (
+              <div className="p-3 bg-gradient-to-r from-[#D8F3DC] to-[#B7E4C7] rounded-xl border border-[#52B788] text-xs text-[#1B4332] space-y-1">
+                <div className="font-black flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-[#2D6A4F] shrink-0" />
+                  <span>🎉 Diskon Otomatis 10% Diterapkan</span>
+                </div>
+                <p className="text-[11px] text-[#2D6A4F]">
+                  Total belanjaan Anda mencapai <b>{formatRupiah(rawSubtotal)}</b> (minimal Rp 1 Juta). Pesanan ini langsung mendapatkan potongan sebesar <b>-{formatRupiah(discountInfo.systemDiscountAmount)}</b>!
+                </p>
+              </div>
+            ) : (
+              <div className="p-3 bg-white rounded-xl border border-[#D5C7B0] text-xs text-[#78350F] flex items-center justify-between">
+                <div>
+                  <span className="font-bold flex items-center gap-1 text-[#1B4332]">
+                    <Sparkles className="w-3.5 h-3.5 text-[#D97706]" />
+                    Promo Diskon Otomatis 10%
+                  </span>
+                  <p className="text-[11px] text-[#8B5E3C] mt-0.5">
+                    Belanja minimal Rp 1.000.000 untuk mendapatkan potongan harga 10%!
+                  </p>
+                </div>
+                <span className="text-[10px] bg-[#FEF3C7] text-[#92400E] px-2 py-1 rounded-lg font-bold shrink-0">
+                  Kurang {formatRupiah(AUTO_DISCOUNT_THRESHOLD - rawSubtotal)}
+                </span>
+              </div>
+            )}
+
+            {/* Kupon Promo Input */}
+            <div className="flex items-center gap-2 pt-1">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder="Kode Kupon Promo (PANENRAYA / ECOAGRO50)"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  className="w-full pl-8 pr-3 py-2 text-xs bg-white border border-[#D5C7B0] rounded-xl outline-none focus:border-[#2D6A4F] uppercase font-mono"
+                />
+                <Tag className="w-3.5 h-3.5 text-[#8B5E3C] absolute left-2.5 top-1/2 -translate-y-1/2" />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 5: Ringkasan Total Tagihan */}
           <div className="p-4 bg-[#FAF8F5] rounded-2xl border border-[#E8DEC8] space-y-2">
             <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
-              <span className="w-5 h-5 rounded-full bg-[#D8F3DC] text-[#1B4332] text-[11px] font-black flex items-center justify-center">4</span>
-              Ringkasan Pembayaran & Promo
+              <span className="w-5 h-5 rounded-full bg-[#D8F3DC] text-[#1B4332] text-[11px] font-black flex items-center justify-center">5</span>
+              Ringkasan Pembayaran & Total Tagihan
             </h3>
 
             <div className="space-y-1.5 text-xs pt-1">
@@ -367,12 +428,28 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <span className="font-semibold text-gray-900">{formatRupiah(rawSubtotal)}</span>
               </div>
 
-              {discountInfo.discountAmount > 0 && (
-                <div className="flex justify-between text-[#1B4332] bg-[#D8F3DC] p-2 rounded-xl font-bold">
+              {/* Potongan Sistem 10% jika >= 1 Jt */}
+              {discountInfo.systemDiscountAmount > 0 && (
+                <div className="flex justify-between text-[#1B4332] bg-[#D8F3DC] px-2.5 py-1.5 rounded-xl font-bold">
                   <span className="flex items-center gap-1">
                     <Sparkles className="w-3.5 h-3.5 text-[#2D6A4F]" />
-                    {discountInfo.discountReason}:
+                    <span>Diskon 10% (Belanja ≥ 1 Jt):</span>
                   </span>
+                  <span>-{formatRupiah(discountInfo.systemDiscountAmount)}</span>
+                </div>
+              )}
+
+              {/* Kupon Promo jika ada */}
+              {discountInfo.couponDiscountAmount > 0 && (
+                <div className="flex justify-between text-[#2D6A4F] bg-white px-2.5 py-1.5 rounded-xl font-bold border border-[#D5C7B0]">
+                  <span>Potongan Kupon ({couponCode.toUpperCase()}):</span>
+                  <span>-{formatRupiah(discountInfo.couponDiscountAmount)}</span>
+                </div>
+              )}
+
+              {discountInfo.discountAmount > 0 && (
+                <div className="flex justify-between text-xs font-black text-[#2D6A4F] pt-1">
+                  <span>Total Penghematan:</span>
                   <span>-{formatRupiah(discountInfo.discountAmount)}</span>
                 </div>
               )}
@@ -414,14 +491,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <span>Pesanan terverifikasi otomatis dengan nomor unik & stok gudang terlindungi</span>
             </div>
 
-            {/* WhatsApp Help Button */}
+            {/* Help Link */}
             <a
               href="https://wa.me/6285600556628?text=Halo%20EcoAgro,%20saya%20ada%20kendala%20saat%20mengisi%20checkout%20pesanan"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full py-2.5 px-3 bg-[#E8F5E9] hover:bg-[#C8E6C9] border border-[#A5D6A7] text-[#1B4332] rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              className="w-full py-2.5 px-3 bg-[#FAF8F5] hover:bg-[#F4EFE6] border border-[#D5C7B0] text-[#1B4332] rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
-              <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse" />
               <span>Jika ada kendala silahkan hubungi</span>
             </a>
           </div>

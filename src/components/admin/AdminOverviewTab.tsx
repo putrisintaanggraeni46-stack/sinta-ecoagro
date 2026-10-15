@@ -14,7 +14,8 @@ import {
   Percent, 
   ChevronRight,
   ShieldCheck,
-  Tag
+  Tag,
+  Coins
 } from 'lucide-react';
 import { Order, Product, Customer } from '../../types';
 import { formatRupiah, formatDateIndo, AUTO_DISCOUNT_THRESHOLD } from '../../utils/formatters';
@@ -23,7 +24,7 @@ interface AdminOverviewTabProps {
   orders: Order[];
   products: Product[];
   customers: Customer[];
-  onNavigateTab: (tabId: 'orders' | 'products' | 'inventory' | 'customers' | 'reports') => void;
+  onNavigateTab: (tabId: 'orders' | 'products' | 'inventory' | 'customers' | 'reports' | 'pos' | 'pricing') => void;
 }
 
 export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
@@ -94,7 +95,25 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => onNavigateTab('pos')}
+            className="px-4 py-2.5 bg-[#FEF3C7] hover:bg-[#FDE68A] text-[#92400E] rounded-2xl text-xs font-black shadow-md cursor-pointer flex items-center gap-2 transition-transform hover:scale-105"
+            title="Buka Layar Kasir Penjualan"
+          >
+            <Coins className="w-4 h-4 text-[#D97706]" />
+            <span>Buka Kasir (PoS)</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab('pricing')}
+            className="px-3.5 py-2.5 bg-[#2D6A4F] hover:bg-[#40916C] text-[#D8F3DC] border border-[#74C69D]/40 rounded-2xl text-xs font-black shadow-sm cursor-pointer flex items-center gap-2 transition-colors"
+            title="Atur Rasio Profit dan Harga Jual"
+          >
+            <TrendingUp className="w-4 h-4 text-[#74C69D]" />
+            <span>Pengaturan Harga</span>
+          </button>
+
           {proofSubmittedOrders.length > 0 && (
             <button
               onClick={() => onNavigateTab('orders')}

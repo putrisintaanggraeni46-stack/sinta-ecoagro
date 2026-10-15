@@ -16,7 +16,8 @@ import {
   Award,
   Leaf,
   User,
-  UserCheck
+  UserCheck,
+  Crown
 } from 'lucide-react';
 import { 
   Product, 
@@ -43,9 +44,11 @@ import {
   rejectPaymentProof,
   updateOrderStatus,
   addSupplierStock,
-  adjustStockWithMutation
+  adjustStockWithMutation,
+  batchUpdatePricing
 } from './services/storeService';
 import { testConnection } from './firebase';
+import { EcoAgroLogo } from './components/EcoAgroLogo';
 import { Navbar } from './components/Navbar';
 import { Banner } from './components/Banner';
 import { ProductCard } from './components/ProductCard';
@@ -272,18 +275,41 @@ export default function App() {
   };
 
   // Order operations
-  const handleSubmitOrder = async (orderPayload: Omit<Order, 'id'>): Promise<string | undefined> => {
+  const handleSubmitOrder = async (orderPayload: Omit<Order, 'id'>): Promise<string> => {
     const newOrderId = await createOrder(orderPayload);
-    if (newOrderId) {
-      const createdOrder: Order = {
-        ...orderPayload,
-        id: newOrderId,
+    const finalId = newOrderId || `ord-${Date.now()}`;
+    const createdOrder: Order = {
+      ...orderPayload,
+      id: finalId,
+    };
+    setRecentCreatedOrder(createdOrder);
+
+    // Update logged-in customer info and record order
+    setLoggedInCustomer((prev) => {
+      const cleanPhone = (orderPayload.customerPhone || '').replace(/[^0-9]/g, '');
+      const updatedCustomer: UserAccount = {
+        id: prev?.id || orderPayload.customerId || `cust-${cleanPhone || Date.now()}`,
+        email: prev?.email || orderPayload.customerEmail || 'pelanggan@ecoagro.id',
+        name: orderPayload.customerName || prev?.name || 'Pelanggan EcoAgro',
+        phone: orderPayload.customerPhone || prev?.phone || '',
+        address: orderPayload.customerAddress || prev?.address || '',
+        role: 'customer',
+        totalOrders: (prev?.totalOrders || 0) + 1,
+        createdAt: prev?.createdAt || new Date().toISOString(),
       };
-      setRecentCreatedOrder(createdOrder);
+      try {
+        localStorage.setItem(CUSTOMER_STORAGE_KEY, JSON.stringify(updatedCustomer));
+      } catch {
+        // ignore
+      }
+      return updatedCustomer;
+    });
+
+    if (orderPayload.orderSource !== 'pos') {
       handleClearCart();
       setIsCheckoutOpen(false);
-      return newOrderId;
     }
+    return finalId;
   };
 
   const handleSubmitProof = async (orderId: string, proofUrl: string) => {
@@ -345,6 +371,12 @@ export default function App() {
     await adjustStockWithMutation(productId, productName, targetStock, reason);
   };
 
+  const handleBatchUpdatePricing = async (
+    updates: { id: string; price: number; buyPrice?: number; profitRatio?: number }[]
+  ) => {
+    await batchUpdatePricing(updates);
+  };
+
   // Customer Account handlers - Direct 1-Click access without requiring credentials
   const handleDirectCustomerLogin = () => {
     // If there is previously saved customer profile in localStorage, load it
@@ -353,7 +385,17 @@ export default function App() {
       try {
         const parsed = JSON.parse(savedCustomerStr);
         if (parsed && parsed.name) {
-          setLoggedInCustomer(parsed);
+          const userObj: UserAccount = {
+            id: parsed.id || `cust-${Date.now()}`,
+            email: parsed.email || 'pelanggan@ecoagro.id',
+            name: parsed.name,
+            phone: parsed.phone || '085600556628',
+            address: parsed.address || 'Jl. Pertanian Makmur Indonesia',
+            role: 'customer',
+            totalOrders: parsed.totalOrders || 0,
+            createdAt: parsed.createdAt || new Date().toISOString(),
+          };
+          setLoggedInCustomer(userObj);
           setIsCustomerAuthOpen(false);
           return;
         }
@@ -370,6 +412,7 @@ export default function App() {
       phone: '085600556628',
       address: 'Jl. Pertanian Makmur Indonesia',
       role: 'customer',
+      totalOrders: 0,
       createdAt: new Date().toISOString(),
     };
     setLoggedInCustomer(instantCustomer);
@@ -422,6 +465,8 @@ export default function App() {
         onUpdateStatus={handleUpdateStatus}
         onAddSupplierStock={handleAddSupplierStock}
         onAdjustStock={handleAdjustStock}
+        onCreateOrder={handleSubmitOrder}
+        onBatchUpdatePricing={handleBatchUpdatePricing}
         isDbConnected={isDbConnected}
       />
     );
@@ -472,12 +517,11 @@ export default function App() {
               </p>
             </div>
 
-            {/* Category Quick Badges */}
+            {/* Promo Highlight Badge */}
             <div className="flex items-center gap-2 text-xs">
-              <span className="font-bold text-[#78350F]/80">Database:</span>
-              <span className="px-2.5 py-1 rounded-full bg-[#D8F3DC] text-[#1B4332] font-black border border-[#B7E4C7] text-[11px] flex items-center gap-1.5 shadow-2xs">
-                <Database className="w-3 h-3 text-[#2D6A4F]" />
-                Firestore Live Active
+              <span className="px-3 py-1 rounded-full bg-[#FEF3C7] text-[#92400E] font-bold border border-[#FDE68A] text-[11px] flex items-center gap-1.5 shadow-2xs">
+                <Sparkles className="w-3.5 h-3.5 text-[#D97706]" />
+                Belanja min. Rp 1 Jt: Diskon Otomatis 10%
               </span>
             </div>
           </div>
@@ -551,20 +595,18 @@ export default function App() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-xs">
             {/* Store Bio */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2D6A4F] to-[#40916C] flex items-center justify-center text-white font-black shadow-md border border-[#52B788]/30">
-                  <Sprout className="w-5 h-5 text-[#95D5B2]" />
-                </div>
-                <span className="font-extrabold text-lg text-white tracking-tight">
-                  Eco<span className="text-[#D8F3DC]">Agro</span>
-                </span>
-              </div>
+              <EcoAgroLogo
+                onClick={Boolean(adminEmail) ? () => setIsAdminView(true) : () => setIsAdminLoginOpen(true)}
+                size="md"
+                dark
+                title="EcoAgro - Toko Pertanian"
+              />
               <p className="text-[#D8F3DC]/80 leading-relaxed text-[11px]">
                 Marketplace penyedia 50+ sarana produksi pertanian ramah lingkungan & modern: Benih unggul, pupuk organik, proteksi hama nabati & kimia, alat mesin, irigasi hingga pakan ternak.
               </p>
-              <div className="flex items-center gap-1.5 text-[#FDE68A] font-bold text-[11px]">
+              <div className="flex items-center gap-1.5 text-[#D8F3DC] font-medium text-[11px]">
                 <ShieldCheck className="w-4 h-4 text-[#74C69D]" />
-                <span>Single Source of Truth: Firestore DB</span>
+                <span>Jaminan 100% Produk Tani Asli & Bergaransi Mutu</span>
               </div>
             </div>
 
@@ -682,6 +724,7 @@ export default function App() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cartItems={cartItems}
+        loggedInCustomer={loggedInCustomer}
         onUpdateQuantity={handleUpdateCartQuantity}
         onRemoveItem={handleRemoveCartItem}
         onClearCart={handleClearCart}
@@ -729,11 +772,22 @@ export default function App() {
         onLoginSuccess={handleCustomerLoginSuccess}
       />
 
-      {/* 8. Customer Profile Modal */}
+      {/* 8. Customer Profile Modal with Real Order Count */}
       <CustomerProfileModal
         isOpen={isCustomerProfileOpen}
         onClose={() => setIsCustomerProfileOpen(false)}
         user={loggedInCustomer}
+        ordersCount={
+          orders.filter((o) => {
+            if (!loggedInCustomer) return false;
+            const cleanCustPhone = (loggedInCustomer.phone || '').replace(/[^0-9]/g, '');
+            const cleanOrderPhone = (o.customerPhone || '').replace(/[^0-9]/g, '');
+            return (
+              (cleanCustPhone.length >= 8 && cleanCustPhone === cleanOrderPhone) ||
+              (loggedInCustomer.id && o.customerId === loggedInCustomer.id)
+            );
+          }).length
+        }
         onUpdateProfile={handleUpdateCustomerProfile}
         onOpenMyOrders={() => {
           setIsCustomerProfileOpen(false);

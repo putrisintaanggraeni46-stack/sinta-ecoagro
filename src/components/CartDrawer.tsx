@@ -1,12 +1,29 @@
 import React, { useState } from 'react';
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ShieldCheck, Sprout, Tag, Sparkles, CheckCircle2 } from 'lucide-react';
-import { CartItem } from '../types';
-import { formatRupiah, calculateCartDiscount, AUTO_DISCOUNT_THRESHOLD } from '../utils/formatters';
+import { 
+  X, 
+  Trash2, 
+  Plus, 
+  Minus, 
+  ShoppingBag, 
+  ArrowRight, 
+  ShieldCheck, 
+  Sprout, 
+  Tag, 
+  Sparkles, 
+  CheckCircle2 
+} from 'lucide-react';
+import { CartItem, UserAccount } from '../types';
+import { 
+  formatRupiah, 
+  calculateCartDiscount, 
+  AUTO_DISCOUNT_THRESHOLD 
+} from '../utils/formatters';
 
 interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
+  loggedInCustomer?: UserAccount | null;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
   onClearCart: () => void;
@@ -80,18 +97,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             </div>
           </div>
 
-          {/* 10% Auto Discount Promotion Banner / Progress Bar */}
+          {/* Promotion / Auto Discount Banner */}
           {cartItems.length > 0 && (
-            <div className="bg-[#FAF8F5] p-3.5 border-b border-[#E8DEC8]">
+            <div className="bg-[#FAF8F5] p-3.5 border-b border-[#E8DEC8] space-y-2">
               {discountInfo.qualifiesForAutoDiscount ? (
-                <div className="flex items-center gap-2 text-xs text-[#1B4332] bg-[#D8F3DC] p-2.5 rounded-xl border border-[#74C69D]">
-                  <Sparkles className="w-4 h-4 text-[#2D6A4F] shrink-0" />
-                  <div>
-                    <span className="font-extrabold">Selamat! Diskon Otomatis 10% Aktif</span>
-                    <p className="text-[11px] text-[#2D6A4F]">
-                      Anda menghemat <b className="font-black">{formatRupiah(discountInfo.discountAmount)}</b> untuk pembelian minimal 1 Juta!
-                    </p>
+                <div className="p-2.5 rounded-xl border bg-gradient-to-r from-[#D8F3DC] to-[#B7E4C7] border-[#52B788] text-[#1B4332] text-xs space-y-1">
+                  <div className="flex items-center gap-1.5 font-black">
+                    <Sparkles className="w-4 h-4 text-[#2D6A4F] shrink-0" />
+                    <span>🎉 Selamat! Diskon Otomatis 10% Aktif</span>
                   </div>
+                  <p className="text-[11px] text-[#2D6A4F] leading-tight">
+                    Belanjaan Anda mencapai Rp 1 Juta! Anda mendapatkan potongan <b>10% (-{formatRupiah(discountInfo.systemDiscountAmount)})</b>.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-1.5">
@@ -101,18 +118,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       Promo Diskon Otomatis 10%
                     </span>
                     <span className="text-[#92400E]">
-                      Tambah {formatRupiah(discountInfo.remainingForAutoDiscount)}
+                      Kurang {formatRupiah(discountInfo.remainingForAutoDiscount)}
                     </span>
                   </div>
-                  {/* Progress bar */}
-                  <div className="w-full h-2.5 bg-[#EAE0D0] rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-[#EAE0D0] rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-[#F59E0B] to-[#2D6A4F] rounded-full transition-all duration-300"
                       style={{ width: `${progressPercent}%` }}
                     />
                   </div>
                   <p className="text-[10px] text-[#8B5E3C]">
-                    Belanja minimal Rp 1.000.000 untuk otomatis potong diskon 10%!
+                    Belanja minimal Rp 1.000.000 untuk otomatis memperoleh Diskon 10%!
                   </p>
                 </div>
               )}
@@ -139,73 +155,63 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
             ) : (
               cartItems.map((item) => {
-                const maxStock = item.product.stock;
-                const isMax = item.quantity >= maxStock;
-
+                const itemTotal = item.product.price * item.quantity;
                 return (
                   <div
                     key={item.product.id}
-                    className="p-3 bg-[#FAF8F5] rounded-2xl border border-[#E8DEC8] flex gap-3 items-start group hover:border-[#2D6A4F] transition-colors"
+                    className="p-3 bg-white rounded-2xl border border-[#E8DEC8] hover:border-[#D5C7B0] shadow-2xs flex gap-3 transition-colors"
                   >
-                    {/* Thumbnail */}
                     <img
                       src={item.product.imageUrl}
                       alt={item.product.name}
-                      className="w-16 h-16 rounded-xl object-cover shrink-0 bg-white border border-[#D5C7B0]"
+                      className="w-16 h-16 object-cover rounded-xl bg-gray-50 border border-gray-100 shrink-0"
                     />
 
-                    {/* Details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-1">
-                        <h4 className="text-xs sm:text-sm font-bold text-gray-900 truncate">
-                          {item.product.name}
-                        </h4>
-                        <button
-                          onClick={() => onRemoveItem(item.product.id)}
-                          className="text-gray-400 hover:text-rose-600 p-1 transition-colors cursor-pointer"
-                          title="Hapus barang"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-start justify-between gap-1">
+                          <h4 className="text-xs font-bold text-gray-900 truncate">
+                            {item.product.name}
+                          </h4>
+                          <button
+                            onClick={() => onRemoveItem(item.product.id)}
+                            className="text-gray-400 hover:text-rose-500 p-1 cursor-pointer transition-colors"
+                            title="Hapus produk"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <span className="text-[10px] text-[#8B5E3C] font-medium">
+                          {formatRupiah(item.product.price)} / {item.product.unit}
+                        </span>
                       </div>
 
-                      <div className="text-[11px] text-[#78350F]/70 mt-0.5">
-                        {item.product.unit} • {formatRupiah(item.product.price)}
-                      </div>
-
-                      {/* Quantity Controls & Subtotal */}
-                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#EAE0D0]">
-                        <div className="flex items-center border border-[#D5C7B0] rounded-lg bg-white overflow-hidden shadow-2xs">
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="flex items-center gap-1.5 border border-[#D5C7B0] rounded-xl px-1.5 py-0.5 bg-[#FAF8F5]">
                           <button
                             onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
-                            className="p-1 hover:bg-gray-100 text-gray-600 transition-colors cursor-pointer"
+                            className="p-1 hover:bg-white rounded-lg text-gray-600 transition-colors cursor-pointer"
+                            title="Kurangi"
                           >
                             <Minus className="w-3 h-3" />
                           </button>
-                          <span className="w-8 text-center text-xs font-bold text-gray-900">
+                          <span className="text-xs font-bold px-1 text-gray-900 min-w-4 text-center">
                             {item.quantity}
                           </span>
                           <button
                             onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                            disabled={isMax}
-                            className="p-1 hover:bg-gray-100 text-gray-600 disabled:opacity-30 transition-colors cursor-pointer"
+                            disabled={item.quantity >= item.product.stock}
+                            className="p-1 hover:bg-white rounded-lg text-gray-600 disabled:opacity-30 transition-colors cursor-pointer"
+                            title="Tambah"
                           >
                             <Plus className="w-3 h-3" />
                           </button>
                         </div>
 
-                        <div className="text-right">
-                          <span className="text-xs font-black text-[#1B4332]">
-                            {formatRupiah(item.product.price * item.quantity)}
-                          </span>
-                        </div>
+                        <span className="text-xs font-black text-[#1B4332]">
+                          {formatRupiah(itemTotal)}
+                        </span>
                       </div>
-
-                      {isMax && (
-                        <div className="text-[10px] text-amber-700 mt-1">
-                          Mencapai batas stok ({maxStock} unit)
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
@@ -213,18 +219,21 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             )}
           </div>
 
-          {/* Footer Checkout Summary */}
+          {/* Footer Summary & Checkout */}
           {cartItems.length > 0 && (
             <div className="p-4 sm:p-5 border-t border-[#E8DEC8] bg-[#FAF8F5] space-y-3">
-              {/* Optional Coupon Form */}
-              <form onSubmit={handleApplyCoupon} className="flex gap-1.5">
-                <input
-                  type="text"
-                  placeholder="Kode Kupon (PANENRAYA / ECOAGRO50)"
-                  value={couponInput}
-                  onChange={(e) => setCouponInput(e.target.value)}
-                  className="flex-1 px-3 py-1.5 text-xs bg-white border border-[#D5C7B0] rounded-xl outline-none focus:border-[#2D6A4F] uppercase font-mono"
-                />
+              {/* Promo Coupon Form */}
+              <form onSubmit={handleApplyCoupon} className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder="Kode Kupon (PANENRAYA / ECOAGRO50)"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-[#D5C7B0] rounded-xl outline-none focus:border-[#2D6A4F] uppercase font-mono"
+                  />
+                  <Tag className="w-3.5 h-3.5 text-[#8B5E3C] absolute left-2.5 top-1/2 -translate-y-1/2" />
+                </div>
                 <button
                   type="submit"
                   className="px-3 py-1.5 bg-[#8B5E3C] hover:bg-[#78350F] text-white rounded-xl text-xs font-bold cursor-pointer transition-colors"
@@ -239,9 +248,25 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <span className="font-semibold text-gray-900">{formatRupiah(rawSubtotal)}</span>
                 </div>
 
-                {discountInfo.discountAmount > 0 && (
+                {/* Potongan Sistem 10% jika >= 1 Jt */}
+                {discountInfo.systemDiscountAmount > 0 && (
                   <div className="flex justify-between text-[#1B4332] bg-[#D8F3DC] px-2 py-1 rounded-lg font-bold">
-                    <span>{discountInfo.discountReason}:</span>
+                    <span>Diskon 10% (Belanja ≥ 1 Jt):</span>
+                    <span>-{formatRupiah(discountInfo.systemDiscountAmount)}</span>
+                  </div>
+                )}
+
+                {/* Kupon Promo jika ada */}
+                {discountInfo.couponDiscountAmount > 0 && (
+                  <div className="flex justify-between text-[#2D6A4F] bg-[#FAF8F5] px-2 py-1 rounded-lg font-bold border border-[#D5C7B0]">
+                    <span>Potongan Kupon:</span>
+                    <span>-{formatRupiah(discountInfo.couponDiscountAmount)}</span>
+                  </div>
+                )}
+
+                {discountInfo.discountAmount > 0 && (
+                  <div className="flex justify-between text-xs font-black text-[#2D6A4F]">
+                    <span>Total Hemat:</span>
                     <span>-{formatRupiah(discountInfo.discountAmount)}</span>
                   </div>
                 )}
@@ -259,27 +284,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
               <button
                 onClick={onProceedToCheckout}
-                className="w-full py-3.5 bg-[#2D6A4F] hover:bg-[#1B4332] active:bg-[#081C15] text-white rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-md shadow-[#2D6A4F]/20 transition-all cursor-pointer border border-[#52B788]/30"
+                className="w-full py-3.5 bg-[#2D6A4F] hover:bg-[#1B4332] active:bg-[#081C15] text-white rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#2D6A4F]/25 hover:scale-[1.01] transition-all cursor-pointer"
               >
                 <span>Lanjut ke Formulir Checkout</span>
-                <ArrowRight className="w-4 h-4 text-[#D8F3DC]" />
+                <ArrowRight className="w-4 h-4" />
               </button>
 
               <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#78350F]/70">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#2D6A4F]" />
-                <span>Transaksi aman, order otomatis tercatat di database</span>
+                <span>Transaksi Aman • Bayar Bank BCA, Mandiri, BRI & QRIS</span>
               </div>
-
-              {/* WhatsApp Help Button */}
-              <a
-                href="https://wa.me/6285600556628?text=Halo%20EcoAgro,%20saya%20ada%20kendala%20saat%20cek%20keranjang%20belanja"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-2 px-3 bg-[#E8F5E9] hover:bg-[#C8E6C9] border border-[#A5D6A7] text-[#1B4332] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse" />
-                <span>Jika ada kendala silahkan hubungi</span>
-              </a>
             </div>
           )}
         </div>

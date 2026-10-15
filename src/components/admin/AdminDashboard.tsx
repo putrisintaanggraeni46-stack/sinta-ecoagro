@@ -10,7 +10,10 @@ import {
   LogOut, 
   ShieldCheck, 
   Sprout, 
-  Database 
+  Database,
+  Coins,
+  TrendingUp,
+  Receipt
 } from 'lucide-react';
 import { Product, Order, Customer, OrderStatus, StockMutation } from '../../types';
 import { AdminOverviewTab } from './AdminOverviewTab';
@@ -19,6 +22,9 @@ import { OrderApprovalTab } from './OrderApprovalTab';
 import { InventoryManagementTab } from './InventoryManagementTab';
 import { CustomerManagementTab } from './CustomerManagementTab';
 import { SalesReportsTab } from './SalesReportsTab';
+import { PosKasirTab } from './PosKasirTab';
+import { PricingManagementTab } from './PricingManagementTab';
+import { EcoAgroLogo } from '../EcoAgroLogo';
 
 interface AdminDashboardProps {
   adminEmail: string;
@@ -37,10 +43,12 @@ interface AdminDashboardProps {
   onUpdateStatus: (orderId: string, status: OrderStatus, trackingNumber?: string) => Promise<void>;
   onAddSupplierStock: (productId: string, productName: string, qty: number, supplier: string, notes?: string) => Promise<void>;
   onAdjustStock: (productId: string, productName: string, targetStock: number, reason: string) => Promise<void>;
+  onCreateOrder: (order: Omit<Order, 'id'>) => Promise<string>;
+  onBatchUpdatePricing: (updates: { id: string; price: number; buyPrice?: number; profitRatio?: number }[]) => Promise<void>;
   isDbConnected: boolean;
 }
 
-export type AdminTab = 'overview' | 'orders' | 'products' | 'inventory' | 'customers' | 'reports';
+export type AdminTab = 'overview' | 'pos' | 'orders' | 'products' | 'pricing' | 'inventory' | 'customers' | 'reports';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   adminEmail,
@@ -59,6 +67,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdateStatus,
   onAddSupplierStock,
   onAdjustStock,
+  onCreateOrder,
+  onBatchUpdatePricing,
   isDbConnected,
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
@@ -86,9 +96,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="h-6 w-px bg-[#2D6A4F]" />
 
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#FEF3C7] text-[#1B4332] flex items-center justify-center font-bold shadow-xs">
-                  <ShieldCheck className="w-5 h-5 text-[#2D6A4F]" />
-                </div>
+                <EcoAgroLogo size="sm" dark showText={false} />
                 <div>
                   <div className="flex items-center gap-2">
                     <h1 className="font-extrabold text-sm sm:text-base leading-tight">
@@ -99,7 +107,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </span>
                   </div>
                   <p className="text-[11px] text-[#D8F3DC]">
-                    Pusat Kendali Operasional, Stok Gudang & Approval Pembayaran
+                    Sistem Kasir PoS, Manajemen Stok Gudang, Harga & Approval Pesanan
                   </p>
                 </div>
               </div>
@@ -107,7 +115,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* Right: DB Status & Admin Info */}
             <div className="flex items-center gap-3">
-              <div className="hidden md:flex items-center gap-1.5 bg-[#2D6A4F]/80 px-2.5 py-1 rounded-lg text-[11px] text-[#D8F3DC] border border-[#52B788]/30">
+              {/* Quick POS Trigger Button */}
+              <button
+                onClick={() => setActiveTab('pos')}
+                className="hidden md:flex items-center gap-1.5 bg-[#FEF3C7] hover:bg-[#FDE68A] text-[#92400E] px-3 py-1.5 rounded-xl text-xs font-extrabold shadow-sm cursor-pointer transition-transform hover:scale-105"
+                title="Buka Layar Kasir Toko"
+              >
+                <Coins className="w-4 h-4 text-[#D97706]" />
+                <span>Buka Kasir (PoS)</span>
+              </button>
+
+              <div className="hidden lg:flex items-center gap-1.5 bg-[#2D6A4F]/80 px-2.5 py-1 rounded-lg text-[11px] text-[#D8F3DC] border border-[#52B788]/30">
                 <Database className="w-3.5 h-3.5 text-[#52B788]" />
                 <span>{isDbConnected ? 'Firestore Live' : 'Connecting...'}</span>
               </div>
@@ -139,36 +157,56 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 label: 'Dashboard Utama',
                 icon: LayoutDashboard,
                 badge: null,
+                color: null,
+              },
+              {
+                id: 'pos',
+                label: 'Kasir (PoS)',
+                icon: Coins,
+                badge: 'Kasir Toko',
+                color: 'bg-[#FEF3C7] text-[#92400E]',
               },
               {
                 id: 'orders',
                 label: 'Approval & Pesanan',
                 icon: ClipboardCheck,
                 badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : null,
+                color: 'bg-[#F59E0B] text-[#78350F]',
               },
               {
                 id: 'products',
                 label: `Katalog Produk (${products.length})`,
                 icon: Package,
                 badge: null,
+                color: null,
+              },
+              {
+                id: 'pricing',
+                label: 'Pengaturan Harga & Margin',
+                icon: TrendingUp,
+                badge: 'Auto Ratio',
+                color: 'bg-[#D8F3DC] text-[#1B4332]',
               },
               {
                 id: 'inventory',
                 label: 'Gudang & Stok',
                 icon: Warehouse,
                 badge: criticalStockCount > 0 ? `${criticalStockCount} Kritis` : null,
+                color: 'bg-rose-500 text-white',
               },
               {
                 id: 'customers',
                 label: `Data Pelanggan (${customers.length})`,
                 icon: Users,
                 badge: null,
+                color: null,
               },
               {
                 id: 'reports',
                 label: 'Laporan Sales & Omzet',
                 icon: BarChart3,
                 badge: null,
+                color: null,
               },
             ].map((tab) => {
               const IconComp = tab.icon;
@@ -187,7 +225,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <IconComp className="w-4 h-4" />
                   <span>{tab.label}</span>
                   {tab.badge !== null && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-[#F59E0B] text-[#78350F] text-[10px] font-black animate-pulse">
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${tab.color || 'bg-[#F59E0B] text-[#78350F]'}`}>
                       {tab.badge}
                     </span>
                   )}
@@ -205,7 +243,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             orders={orders}
             products={products}
             customers={customers}
-            onNavigateTab={(tab) => setActiveTab(tab)}
+            onNavigateTab={(tab) => {
+              if (tab === 'pos' || tab === 'pricing') {
+                setActiveTab(tab);
+              } else {
+                setActiveTab(tab as AdminTab);
+              }
+            }}
+          />
+        )}
+
+        {activeTab === 'pos' && (
+          <PosKasirTab
+            products={products}
+            orders={orders}
+            customers={customers}
+            onCreateOrder={onCreateOrder}
+            onOpenInventory={() => setActiveTab('inventory')}
+            onOpenPricing={() => setActiveTab('pricing')}
           />
         )}
 
@@ -225,6 +280,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             onUpdateStock={onUpdateStock}
             onDeleteProduct={onDeleteProduct}
             onResetDefaultProducts={onResetDefaultProducts}
+          />
+        )}
+
+        {activeTab === 'pricing' && (
+          <PricingManagementTab
+            products={products}
+            onSaveProduct={onSaveProduct}
+            onBatchUpdatePricing={onBatchUpdatePricing}
           />
         )}
 
