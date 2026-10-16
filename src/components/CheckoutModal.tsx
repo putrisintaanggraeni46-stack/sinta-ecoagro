@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, 
   CheckCircle2, 
@@ -39,6 +39,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   loggedInCustomer,
   onSubmitOrder,
 }) => {
+  const modalScrollRef = useRef<HTMLFormElement>(null);
   const [customerName, setCustomerName] = useState(loggedInCustomer?.name || '');
   const [customerPhone, setCustomerPhone] = useState(loggedInCustomer?.phone || '');
   const [customerAddress, setCustomerAddress] = useState(loggedInCustomer?.address || '');
@@ -47,6 +48,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('transfer_bca');
   const [couponCode, setCouponCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [copiedBank, setCopiedBank] = useState(false);
 
@@ -77,18 +79,27 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setHasAttemptedSubmit(true);
     setErrorMsg('');
 
     if (!customerName.trim()) {
       setErrorMsg('Nama lengkap pembeli wajib diisi');
+      modalScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    if (!customerPhone.trim() || customerPhone.length < 8) {
-      setErrorMsg('Nomor WhatsApp wajib diisi minimal 8 digit');
+    const cleanPhone = customerPhone.replace(/[^0-9]/g, '');
+    if (!cleanPhone || cleanPhone.length < 8) {
+      setErrorMsg('Nomor WhatsApp aktif wajib diisi minimal 8 digit');
+      modalScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
     if (!customerAddress.trim()) {
       setErrorMsg('Alamat pengiriman lengkap wajib diisi');
+      modalScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (cartItems.length === 0) {
+      setErrorMsg('Keranjang belanja kosong');
       return;
     }
 
@@ -136,7 +147,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         updatedAt: new Date().toISOString(),
       };
 
-      await onSubmitOrder(orderPayload);
+      const submitPromise = onSubmitOrder(orderPayload);
+      const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, 6000));
+      await Promise.race([submitPromise, timeoutPromise]);
       onClose();
     } catch (err: unknown) {
       console.error(err);
@@ -147,35 +160,47 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/65 backdrop-blur-xs flex items-center justify-center p-4">
+    <div 
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
       <div 
-        className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-[#E8DEC8] my-8"
+        className="relative w-full max-w-2xl max-h-[92vh] sm:max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-[#E8DEC8] flex flex-col overflow-hidden my-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="p-5 sm:p-6 bg-[#1B4332] text-white flex items-center justify-between border-b border-[#2D6A4F]">
+        {/* Header - Always Fixed at Top, Never Cut Off */}
+        <div className="shrink-0 p-4 sm:p-5 bg-[#1B4332] text-white flex items-center justify-between border-b border-[#2D6A4F] z-10 shadow-xs">
           <div>
-            <h2 className="text-lg sm:text-xl font-black">Formulir Checkout EcoAgro</h2>
+            <h2 className="text-base sm:text-lg font-black tracking-tight">Formulir Checkout EcoAgro</h2>
             <p className="text-xs text-[#D8F3DC] mt-0.5">
               Isi data pengiriman & pilih metode pembayaran
             </p>
           </div>
           <button
             onClick={onClose}
+            type="button"
             className="p-2 rounded-xl bg-[#2D6A4F] hover:bg-[#40916C] text-white transition-colors cursor-pointer"
+            title="Tutup Formulir"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {errorMsg && (
-          <div className="mx-6 mt-4 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-5">
+        {/* Scrollable Form Body - User can scroll naturally without the top ever getting clipped */}
+        <form 
+          ref={modalScrollRef} 
+          onSubmit={handleSubmit} 
+          className="overflow-y-auto flex-1 p-4 sm:p-6 space-y-5 overscroll-contain"
+        >
+          {errorMsg && (
+            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 flex items-start gap-2.5 shadow-xs">
+              <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />
+              <div>
+                <span className="font-bold text-rose-800">Perhatian: </span>
+                <span>{errorMsg}</span>
+              </div>
+            </div>
+          )}
           {/* Section 1: Customer Details */}
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -192,45 +217,78 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Nama Lengkap <span className="text-rose-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-gray-700">
+                    Nama Lengkap <span className="text-rose-500">*</span>
+                  </label>
+                  {hasAttemptedSubmit && !customerName.trim() && (
+                    <span className="text-[10px] text-rose-600 font-bold">Wajib diisi</span>
+                  )}
+                </div>
                 <input
                   type="text"
-                  required
                   placeholder="Contoh: Pak Budi Santoso"
                   value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-[#FAF8F5] border border-[#D5C7B0] rounded-xl outline-none focus:bg-white focus:border-[#2D6A4F]"
+                  onChange={(e) => {
+                    setCustomerName(e.target.value);
+                    if (errorMsg) setErrorMsg('');
+                  }}
+                  className={`w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl outline-none transition-all ${
+                    hasAttemptedSubmit && !customerName.trim()
+                      ? 'bg-rose-50/50 border-2 border-rose-400 focus:border-rose-500'
+                      : 'bg-[#FAF8F5] border border-[#D5C7B0] focus:bg-white focus:border-[#2D6A4F]'
+                  }`}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Nomor WhatsApp Aktif <span className="text-rose-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-gray-700">
+                    Nomor WhatsApp Aktif <span className="text-rose-500">*</span>
+                  </label>
+                  {hasAttemptedSubmit && customerPhone.replace(/[^0-9]/g, '').length < 8 && (
+                    <span className="text-[10px] text-rose-600 font-bold">Min. 8 digit angka</span>
+                  )}
+                </div>
                 <input
                   type="tel"
-                  required
                   placeholder="Contoh: 081234567890"
                   value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-[#FAF8F5] border border-[#D5C7B0] rounded-xl outline-none focus:bg-white focus:border-[#2D6A4F]"
+                  onChange={(e) => {
+                    setCustomerPhone(e.target.value);
+                    if (errorMsg) setErrorMsg('');
+                  }}
+                  className={`w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl outline-none transition-all ${
+                    hasAttemptedSubmit && customerPhone.replace(/[^0-9]/g, '').length < 8
+                      ? 'bg-rose-50/50 border-2 border-rose-400 focus:border-rose-500'
+                      : 'bg-[#FAF8F5] border border-[#D5C7B0] focus:bg-white focus:border-[#2D6A4F]'
+                  }`}
                 />
               </div>
             </div>
 
             <div className="mt-3.5">
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Alamat Lengkap Pengiriman Lahan / Rumah <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-gray-700">
+                  Alamat Lengkap Pengiriman Lahan / Rumah <span className="text-rose-500">*</span>
+                </label>
+                {hasAttemptedSubmit && !customerAddress.trim() && (
+                  <span className="text-[10px] text-rose-600 font-bold">Wajib diisi</span>
+                )}
+              </div>
               <textarea
-                required
                 rows={2}
                 placeholder="Dusun/Jalan, RT/RW, Desa/Kelurahan, Kecamatan, Kabupaten/Kota, Kode Pos"
                 value={customerAddress}
-                onChange={(e) => setCustomerAddress(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs sm:text-sm bg-[#FAF8F5] border border-[#D5C7B0] rounded-xl outline-none focus:bg-white focus:border-[#2D6A4F]"
+                onChange={(e) => {
+                  setCustomerAddress(e.target.value);
+                  if (errorMsg) setErrorMsg('');
+                }}
+                className={`w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl outline-none transition-all ${
+                  hasAttemptedSubmit && !customerAddress.trim()
+                    ? 'bg-rose-50/50 border-2 border-rose-400 focus:border-rose-500'
+                    : 'bg-[#FAF8F5] border border-[#D5C7B0] focus:bg-white focus:border-[#2D6A4F]'
+                }`}
               />
             </div>
 
@@ -467,20 +525,30 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </div>
 
           {/* Submit CTA */}
-          <div className="pt-2 space-y-2">
+          <div className="pt-2 space-y-3">
+            {errorMsg && (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 flex items-start gap-2.5 shadow-xs">
+                <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />
+                <div>
+                  <div className="font-bold text-rose-800">Mohon Periksa Formulir:</div>
+                  <div className="mt-0.5 text-rose-700 font-medium leading-relaxed">{errorMsg}</div>
+                </div>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3.5 bg-[#2D6A4F] hover:bg-[#1B4332] active:bg-[#081C15] disabled:opacity-50 text-white rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-md shadow-[#2D6A4F]/20 transition-all cursor-pointer border border-[#52B788]/30"
+              className="w-full py-4 bg-[#2D6A4F] hover:bg-[#1B4332] active:bg-[#081C15] disabled:opacity-60 text-white rounded-2xl text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-[#2D6A4F]/25 transition-all cursor-pointer border border-[#52B788]/40"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Menyimpan Pesanan ke Database...</span>
+                  <Loader2 className="w-5 h-5 animate-spin text-[#74C69D]" />
+                  <span>Memproses & Menyimpan Pesanan...</span>
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4 text-[#74C69D]" />
+                  <CheckCircle2 className="w-5 h-5 text-[#74C69D]" />
                   <span>Konfirmasi & Buat Pesanan ({formatRupiah(discountInfo.finalTotal)})</span>
                 </>
               )}

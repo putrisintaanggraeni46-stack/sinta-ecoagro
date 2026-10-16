@@ -192,18 +192,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                 )}
               </div>
-            ) : (
-              /* Button Masuk sebagai Pelanggan (Langsung masuk, tanpa login & tanpa ketik apapun) */
-              <button
-                onClick={onEnterAsCustomer}
-                className="flex items-center gap-1.5 bg-[#2D6A4F] hover:bg-[#1B4332] active:bg-[#081C15] text-white px-3 py-2 rounded-2xl text-xs font-bold transition-all shadow-xs hover:shadow-md cursor-pointer border border-[#52B788]/30"
-                title="Langsung masuk sebagai pelanggan tanpa perlu ketik email/password"
-              >
-                <User className="w-4 h-4 text-[#D8F3DC]" />
-                <span className="hidden sm:inline">Masuk Pelanggan</span>
-                <span className="sm:hidden">Pelanggan</span>
-              </button>
-            )}
+            ) : null}
 
             {/* Lacak Pesanan Button */}
             <button

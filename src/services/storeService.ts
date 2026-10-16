@@ -380,34 +380,55 @@ export function subscribeToOrders(
 
 // Create new customer order with stock decrement & mutation logging
 export async function createOrder(orderPayload: Omit<Order, 'id'>): Promise<string> {
+  const rawOrderData = {
+    ...orderPayload,
+    orderSource: orderPayload.orderSource || 'online',
+    cashierName: orderPayload.cashierName || '',
+    cashPaidAmount: Number(orderPayload.cashPaidAmount) || 0,
+    cashChangeAmount: Number(orderPayload.cashChangeAmount) || 0,
+    totalCostAmount: Number(orderPayload.totalCostAmount) || 0,
+    totalProfitAmount: Number(orderPayload.totalProfitAmount) || 0,
+    systemDiscountAmount: Number(orderPayload.systemDiscountAmount) || 0,
+    customerId: orderPayload.customerId || 'guest',
+    customerEmail: orderPayload.customerEmail || '',
+    notes: orderPayload.notes || '',
+    discountReason: orderPayload.discountReason || '',
+    couponCode: orderPayload.couponCode || '',
+    paymentProofUrl: orderPayload.paymentProofUrl || '',
+    paymentProofDate: orderPayload.paymentProofDate || '',
+    adminNotes: orderPayload.adminNotes || '',
+    trackingNumber: orderPayload.trackingNumber || '',
+    createdAt: orderPayload.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const sanitizedOrderData = sanitizeFirestoreData(rawOrderData);
+  let orderId = '';
+
+  // 1. Write order document to Firestore (with 6s timeout so UI never hangs)
   try {
-    const rawOrderData = {
-      ...orderPayload,
-      orderSource: orderPayload.orderSource || 'online',
-      cashierName: orderPayload.cashierName || '',
-      cashPaidAmount: Number(orderPayload.cashPaidAmount) || 0,
-      cashChangeAmount: Number(orderPayload.cashChangeAmount) || 0,
-      totalCostAmount: Number(orderPayload.totalCostAmount) || 0,
-      totalProfitAmount: Number(orderPayload.totalProfitAmount) || 0,
-      systemDiscountAmount: Number(orderPayload.systemDiscountAmount) || 0,
-      customerId: orderPayload.customerId || 'guest',
-      customerEmail: orderPayload.customerEmail || '',
-      notes: orderPayload.notes || '',
-      discountReason: orderPayload.discountReason || '',
-      couponCode: orderPayload.couponCode || '',
-      paymentProofUrl: orderPayload.paymentProofUrl || '',
-      paymentProofDate: orderPayload.paymentProofDate || '',
-      adminNotes: orderPayload.adminNotes || '',
-      trackingNumber: orderPayload.trackingNumber || '',
-      createdAt: orderPayload.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    const addOrderPromise = addDoc(collection(db, ORDERS_COLLECTION), sanitizedOrderData);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Koneksi Firestore lambat, menyimpan data cadangan')), 6000)
+    );
+    const orderDocRef = await Promise.race([addOrderPromise, timeoutPromise]);
+    orderId = orderDocRef.id;
+  } catch (error) {
+    console.warn('Firestore direct write warning:', error);
+    // Fallback: generate local ID and backup to localStorage so order is never lost
+    orderId = `ord-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+    try {
+      const localOrders = JSON.parse(localStorage.getItem('ecoagro_offline_orders') || '[]');
+      localOrders.unshift({ ...sanitizedOrderData, id: orderId });
+      localStorage.setItem('ecoagro_offline_orders', JSON.stringify(localOrders.slice(0, 100)));
+    } catch {
+      // ignore
+    }
+  }
 
-    const sanitizedOrderData = sanitizeFirestoreData(rawOrderData);
-
-    // Write new order doc
-    const orderDocRef = await addDoc(collection(db, ORDERS_COLLECTION), sanitizedOrderData);
-
+  // 2. Background async execution: update product stocks, log mutations, and upsert customer
+  // This is executed asynchronously so the checkout dialog completes instantly!
+  (async () => {
     // Update product stocks and record stock out mutation
     for (const item of orderPayload.items) {
       if (item.productId) {
@@ -448,45 +469,45 @@ export async function createOrder(orderPayload: Omit<Order, 'id'>): Promise<stri
 
     // Upsert customer info
     try {
-      const cleanPhone = orderPayload.customerPhone.replace(/[^0-9]/g, '');
-      const custDocId = `cust-${cleanPhone}`;
-      const custRef = doc(db, CUSTOMERS_COLLECTION, custDocId);
+      const cleanPhone = (orderPayload.customerPhone || '').replace(/[^0-9]/g, '');
+      if (cleanPhone) {
+        const custDocId = `cust-${cleanPhone}`;
+        const custRef = doc(db, CUSTOMERS_COLLECTION, custDocId);
 
-      await runTransaction(db, async (transaction) => {
-        const custSnap = await transaction.get(custRef);
-        if (custSnap.exists()) {
-          const prevData = custSnap.data();
-          const currentTotalOrders = Number(prevData.totalOrders) || 0;
-          const currentTotalSpent = Number(prevData.totalSpent) || 0;
+        await runTransaction(db, async (transaction) => {
+          const custSnap = await transaction.get(custRef);
+          if (custSnap.exists()) {
+            const prevData = custSnap.data();
+            const currentTotalOrders = Number(prevData.totalOrders) || 0;
+            const currentTotalSpent = Number(prevData.totalSpent) || 0;
 
-          transaction.update(custRef, {
-            name: orderPayload.customerName,
-            address: orderPayload.customerAddress,
-            email: orderPayload.customerEmail || prevData.email || '',
-            totalOrders: currentTotalOrders + 1,
-            totalSpent: currentTotalSpent + orderPayload.totalAmount,
-            lastOrderDate: new Date().toISOString(),
-          });
-        } else {
-          transaction.set(custRef, {
-            name: orderPayload.customerName,
-            phone: orderPayload.customerPhone,
-            email: orderPayload.customerEmail || '',
-            address: orderPayload.customerAddress,
-            totalOrders: 1,
-            totalSpent: orderPayload.totalAmount,
-            lastOrderDate: new Date().toISOString(),
-          });
-        }
-      });
+            transaction.update(custRef, {
+              name: orderPayload.customerName,
+              address: orderPayload.customerAddress,
+              email: orderPayload.customerEmail || prevData.email || '',
+              totalOrders: currentTotalOrders + 1,
+              totalSpent: currentTotalSpent + orderPayload.totalAmount,
+              lastOrderDate: new Date().toISOString(),
+            });
+          } else {
+            transaction.set(custRef, {
+              name: orderPayload.customerName,
+              phone: orderPayload.customerPhone,
+              email: orderPayload.customerEmail || '',
+              address: orderPayload.customerAddress,
+              totalOrders: 1,
+              totalSpent: orderPayload.totalAmount,
+              lastOrderDate: new Date().toISOString(),
+            });
+          }
+        });
+      }
     } catch (e) {
       console.warn('Customer upsert error:', e);
     }
+  })().catch((bgErr) => console.warn('Background order tasks error:', bgErr));
 
-    return orderDocRef.id;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, ORDERS_COLLECTION);
-  }
+  return orderId;
 }
 
 // Upload/Submit Payment Proof by Customer

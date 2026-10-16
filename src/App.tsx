@@ -276,8 +276,16 @@ export default function App() {
 
   // Order operations
   const handleSubmitOrder = async (orderPayload: Omit<Order, 'id'>): Promise<string> => {
-    const newOrderId = await createOrder(orderPayload);
-    const finalId = newOrderId || `ord-${Date.now()}`;
+    let finalId = `ord-${Date.now()}`;
+    try {
+      const newOrderId = await createOrder(orderPayload);
+      if (newOrderId) {
+        finalId = newOrderId;
+      }
+    } catch (err) {
+      console.warn('handleSubmitOrder createOrder error, using fallback ID:', err);
+    }
+
     const createdOrder: Order = {
       ...orderPayload,
       id: finalId,

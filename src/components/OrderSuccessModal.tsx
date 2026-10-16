@@ -84,34 +84,40 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
     const text = encodeURIComponent(
       `Halo EcoAgro Store, saya telah membuat pesanan baru:\n\n*Nomor Pesanan:* ${order.orderNumber}\n*Nama:* ${order.customerName}\n*Total:* ${formatRupiah(order.totalAmount)}\n*Metode:* ${bankInfo.name}\n\nMohon dicek dan diproses ya. Terima kasih!`
     );
-    window.open(`https://wa.me/6281234567890?text=${text}`, '_blank');
+    window.open(`https://wa.me/6285600556628?text=${text}`, '_blank');
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/65 backdrop-blur-xs flex items-center justify-center p-4">
+    <div 
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
       <div 
-        className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-[#E8DEC8] my-8"
+        className="relative w-full max-w-lg max-h-[92vh] sm:max-h-[88vh] bg-white rounded-3xl shadow-2xl border border-[#E8DEC8] flex flex-col overflow-hidden my-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="p-6 bg-gradient-to-r from-[#1B4332] via-[#24523B] to-[#5C3D2E] text-white text-center relative border-b border-[#2D6A4F]">
+        {/* Header - Fixed at Top */}
+        <div className="shrink-0 p-5 sm:p-6 bg-gradient-to-r from-[#1B4332] via-[#24523B] to-[#5C3D2E] text-white text-center relative border-b border-[#2D6A4F]">
           <button
             onClick={onClose}
+            type="button"
             className="absolute top-4 right-4 p-2 rounded-xl bg-white/20 hover:bg-white/30 text-white transition-colors cursor-pointer"
+            title="Tutup"
           >
             <X className="w-4 h-4" />
           </button>
 
-          <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
-            <CheckCircle className="w-8 h-8 text-emerald-300" />
+          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2.5 shadow-inner">
+            <CheckCircle className="w-7 h-7 text-emerald-300" />
           </div>
-          <h2 className="text-xl font-black">Pesanan Berhasil Dibuat!</h2>
-          <p className="text-xs text-emerald-100 mt-1">
+          <h2 className="text-lg sm:text-xl font-black">Pesanan Berhasil Dibuat!</h2>
+          <p className="text-xs text-emerald-100 mt-0.5">
             Data pesanan telah tercatat di real-time database toko
           </p>
         </div>
 
-        <div className="p-6 space-y-5">
+        {/* Scrollable Content Body */}
+        <div className="overflow-y-auto flex-1 p-5 sm:p-6 space-y-5 overscroll-contain">
           {/* Order Code Box */}
           <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-2xl flex items-center justify-between">
             <div>
